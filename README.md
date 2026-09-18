@@ -447,6 +447,6 @@ Bitte veröffentlichen Sie keine Passwörter, Zugangsdaten oder andere vertrauli
 
 ## Projektstatus
 
-Das Projekt befindet sich in der laufenden Weiterentwicklung.
+Das Projekt befindet sich in der Testphase.
 
 Funktionen und unterstützte API-Befehle können sich mit zukünftigen Versionen der Integration und der JUDO Firmware ändern.
