@@ -114,7 +114,7 @@ Das Repository ist für die Verwendung mit HACS und Home Assistant entsprechend 
 ├── LICENSE
 ├── dashboard.yaml
 └── custom_components/
-    └── judo_isoft_PRO/
+    └── judo_isoft_pro/
         ├── __init__.py
         ├── config_flow.py
         ├── const.py
@@ -153,7 +153,7 @@ Die genaue Anzahl und Verfügbarkeit der Sensoren kann abhängig von Modell und 
 
 # Dienste
 
-Die Integration stellt eigene Home Assistant Services unter der Domain `judo_isoft` zur Verfügung.
+Die Integration stellt eigene Home Assistant Services unter der Domain `judo_isoft_pro` zur Verfügung.
 
 Die Services können beispielsweise über Automatisierungen, Skripte oder das Home Assistant Dashboard verwendet werden.
 
@@ -211,13 +211,13 @@ Nach dem Neustart sollte die Integration unter **Einstellungen → Geräte & Die
 3. Kopieren Sie den Ordner
 
 ```text
-custom_components/judo_isoft/
+custom_components/judo_isoft_pro/
 ```
 
 in das Home Assistant Verzeichnis:
 
 ```text
-/config/custom_components/judo_isoft/
+/config/custom_components/judo_isoft_pro/
 ```
 
 Die Verzeichnisstruktur muss anschließend beispielsweise so aussehen:
@@ -225,7 +225,7 @@ Die Verzeichnisstruktur muss anschließend beispielsweise so aussehen:
 ```text
 /config/
 └── custom_components/
-    └── judo_isoft/
+    └── judo_isoft_pro/
         ├── __init__.py
         ├── config_flow.py
         ├── const.py
@@ -388,7 +388,7 @@ Bei Problemen mit der Kommunikation sollte zunächst geprüft werden, ob die JUD
 Prüfen Sie:
 
 ```text
-/config/custom_components/judo_isoft/
+/config/custom_components/judo_isoft_pro/
 ```
 
 und stellen Sie sicher, dass sich darin mindestens die erforderlichen Python-Dateien und `manifest.json` befinden.
