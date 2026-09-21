@@ -1,7 +1,7 @@
 {
   "domain": "judo_isoft_pro",
   "name": "JUDO i-soft PRO / L",
-  "documentation": "https://github.com/JUDO1936/judo-isoft-hacs",
+  "documentation": "https://github.com/JUDO1936/judo-isoft_PRO-hacs",
   "dependencies": [],
   "codeowners": ["@JUDO1936"],
   "requirements": [],
