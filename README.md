@@ -114,7 +114,7 @@ Das Repository ist für die Verwendung mit HACS und Home Assistant entsprechend 
 ├── LICENSE
 ├── dashboard.yaml
 └── custom_components/
-    └── judo_isoft/
+    └── judo_isoft_PRO/
         ├── __init__.py
         ├── config_flow.py
         ├── const.py
