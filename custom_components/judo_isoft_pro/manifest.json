@@ -1,0 +1,13 @@
+{
+  "domain": "judo_isoft",
+  "name": "JUDO i-soft PRO / L",
+  "documentation": "https://github.com/JUDO1936/judo-isoft-hacs",
+  "dependencies": [],
+  "codeowners": [
+    "@JUDO1936"
+  ],
+  "requirements": [],
+  "version": "1.1.0",
+  "config_flow": true,
+  "iot_class": "local_polling"
+}
