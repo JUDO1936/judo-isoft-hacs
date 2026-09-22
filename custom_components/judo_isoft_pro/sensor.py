@@ -1,4 +1,5 @@
-"""Sensor-Plattform für JUDO i-soft mit allen Auslese-Werten."""
+"""Sensor-Plattform für JUDO i-soft mit zentralem Polling-Schutz."""
+import asyncio
 from datetime import timedelta
 import logging
 import requests
@@ -12,7 +13,9 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .const import DOMAIN, CONF_IP_ADDRESS, CONF_USERNAME, CONF_PASSWORD
 
 _LOGGER = logging.getLogger(__name__)
-SCAN_INTERVAL = timedelta(seconds=60)
+
+# Ein globaler Lock sorgt dafür, dass NIEMALS zwei Anfragen gleichzeitig laufen (anlagenübergreifend)
+REQUEST_LOCK = asyncio.Lock()
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -49,10 +52,11 @@ async def async_setup_entry(
         JudoIsoftSensor(ip, user, pwd, "Salzverbrauch Tag", "F300", "g", "mdi:chart-line", "salz_tag"),
     ]
 
-    async_add_entities(sensors, True)
+    # WICHTIG: Hier False übergeben, damit nicht alle 52 Sensoren beim Start auf einmal feuern
+    async_add_entities(sensors, False)
 
 class JudoIsoftSensor(SensorEntity):
-    """Repräsentiert einen JUDO i-soft REST-Sensor."""
+    """Repräsentiert einen JUDO i-soft REST-Sensor mit Drosselung."""
 
     def __init__(self, ip, user, pwd, name, command, unit, icon, unique_key, parse_type="standard"):
         self._ip = ip
@@ -74,8 +78,16 @@ class JudoIsoftSensor(SensorEntity):
     def native_value(self):
         return self._state
 
-    def update(self) -> None:
-        """Ruft die Daten direkt über REST von der Anlage ab."""
+    async def async_update(self) -> None:
+        """Ruft die Daten thread-sicher und mit mindestens 2s Pause ab."""
+        async with REQUEST_LOCK:
+            # 1. Führe den HTTP-Request in einem Executor-Thread aus
+            await self.hass.async_add_executor_job(self._fetch_data)
+            # 2. Erzwinge exakt 2 Sekunden Pause vor der NÄCHSTEN Abfrage
+            await asyncio.sleep(2)
+
+    def _fetch_data(self) -> None:
+        """Klassischer Request an die REST API."""
         url = f"http://{self._ip}/api/rest/{self._command}"
         try:
             response = requests.get(url, auth=HTTPBasicAuth(self._user, self._pwd), timeout=10)
