@@ -1,114 +1,119 @@
-"""Sensor-Plattform für JUDO i-soft mit zentralem Polling-Schutz."""
+"""Setup der JUDO i-soft Custom Component und Registrierung der Dienste."""
 import asyncio
-from datetime import timedelta
 import logging
 import requests
 from requests.auth import HTTPBasicAuth
+import voluptuous as vol
 
-from homeassistant.components.sensor import SensorEntity, SensorDeviceClass, SensorStateClass
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.core import HomeAssistant, ServiceCall
+import homeassistant.helpers.config_validation as cv
 
 from .const import DOMAIN, CONF_IP_ADDRESS, CONF_USERNAME, CONF_PASSWORD
+# Importiere das globale Lock aus der sensor.py, um auch Schreib-Befehle zu synchronisieren
+from .sensor import REQUEST_LOCK
 
 _LOGGER = logging.getLogger(__name__)
+PLATFORMS = ["sensor"]
 
-# Ein globaler Lock sorgt dafür, dass NIEMALS zwei Anfragen gleichzeitig laufen (anlagenübergreifend)
-REQUEST_LOCK = asyncio.Lock()
+SERVICE_SET_HARDNESS_SCHEMA = vol.Schema({
+    vol.Required("haerte"): vol.All(vol.Coerce(int), vol.Range(min=0, max=30)),
+})
 
-async def async_setup_entry(
-    hass: HomeAssistant,
-    entry: ConfigEntry,
-    async_add_entities: AddEntitiesCallback,
-) -> None:
-    """Erstellt alle Sensoren basierend auf den eingegebenen Zugangsdaten."""
-    config = entry.data
-    ip = config[CONF_IP_ADDRESS]
-    user = config[CONF_USERNAME]
-    pwd = config[CONF_PASSWORD]
+SERVICE_SET_SCENE_SCHEMA = vol.Schema({
+    vol.Required("szene"): vol.All(vol.Coerce(int), vol.Range(min=0, max=10)),
+    vol.Required("dauer_hex"): str,
+})
 
-    sensors = [
-        # Einstellungen & Grenzwerte
-        JudoIsoftSensor(ip, user, pwd, "Wunschwasserhärte", "5100", "°dH", "mdi:water-softener", "wunschwasserhaerte"),
-        JudoIsoftSensor(ip, user, pwd, "Salzmangel Warnschwelle", "5700", "Tage", "mdi:alert-circle-outline", "salzmangel_warnschwelle"),
-        JudoIsoftSensor(ip, user, pwd, "Max Entnahmedauer", "3E00", "min", "mdi:timer-outline", "max_entnahmedauer"),
-        JudoIsoftSensor(ip, user, pwd, "Max Entnahmemenge", "3F00", "L", "mdi:water-minus", "max_entnahmemenge"),
-        JudoIsoftSensor(ip, user, pwd, "Max Volumenstrom", "4000", "L/h", "mdi:speedometer", "max_volumenstrom"),
+SERVICE_SET_DAYS_SCHEMA = vol.Schema({
+    vol.Required("tage"): vol.All(vol.Coerce(int), vol.Range(min=1, max=30)),
+})
 
-        # Salz & Verbrauch
-        JudoIsoftSensor(ip, user, pwd, "Salzgewicht", "5600", "kg", "mdi:salt-shaker", "salzgewicht", parse_type="weight"),
-        JudoIsoftSensor(ip, user, pwd, "Salzreichweite", "5600", "Tage", "mdi:calendar-clock", "salzreichweite", parse_type="salt_range"),
-        JudoIsoftSensor(ip, user, pwd, "Gesamtwassermenge", "2800", "m³", "mdi:water-pump", "gesamtwassermenge", parse_type="volume"),
-        JudoIsoftSensor(ip, user, pwd, "Weichwassermenge", "2900", "m³", "mdi:water-check", "weichwassermenge", parse_type="volume"),
+SERVICE_SET_VOLUME_SCHEMA = vol.Schema({
+    vol.Required("liter"): vol.All(vol.Coerce(int), vol.Range(min=100, max=3000)),
+})
 
-        # Infodaten
-        JudoIsoftSensor(ip, user, pwd, "Gerätenummer", "0600", None, "mdi:identifier", "geraetenummer", parse_type="long_int"),
-        JudoIsoftSensor(ip, user, pwd, "Firmware Version", "0100", None, "mdi:file-code-outline", "firmware_version", parse_type="firmware"),
-        
-        # Statistiken
-        JudoIsoftSensor(ip, user, pwd, "Wasserverbrauch Tag", "FB00", "L", "mdi:chart-bar", "wasser_tag", parse_type="long_int"),
-        JudoIsoftSensor(ip, user, pwd, "Wasserverbrauch Monat", "FD00", "L", "mdi:chart-bar", "wasser_monat", parse_type="long_int"),
-        JudoIsoftSensor(ip, user, pwd, "Salzverbrauch Tag", "F300", "g", "mdi:chart-line", "salz_tag"),
-    ]
+SERVICE_SET_FLOW_SCHEMA = vol.Schema({
+    vol.Required("liter_pro_stunde"): vol.All(vol.Coerce(int), vol.Range(min=500, max=5000)),
+})
 
-    # WICHTIG: Hier False übergeben, damit nicht alle 52 Sensoren beim Start auf einmal feuern
-    async_add_entities(sensors, False)
+SERVICE_EMPTY_SCHEMA = vol.Schema({})
 
-class JudoIsoftSensor(SensorEntity):
-    """Repräsentiert einen JUDO i-soft REST-Sensor mit Drosselung."""
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Richtet den Eintrag aus dem Config Flow ein."""
+    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = entry.data
 
-    def __init__(self, ip, user, pwd, name, command, unit, icon, unique_key, parse_type="standard"):
-        self._ip = ip
-        self._user = user
-        self._pwd = pwd
-        self._attr_name = f"i-soft {name}"
-        self._command = command
-        self._attr_native_unit_of_measurement = unit
-        self._attr_icon = icon
-        self._attr_unique_id = f"judo_isoft_{ip}_{unique_key}"
-        self._parse_type = parse_type
-        self._state = None
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
-        if parse_type == "volume":
-            self._attr_device_class = SensorDeviceClass.WATER
-            self._attr_state_class = SensorStateClass.TOTAL_INCREASING
-
-    @property
-    def native_value(self):
-        return self._state
-
-    async def async_update(self) -> None:
-        """Ruft die Daten thread-sicher und mit mindestens 2s Pause ab."""
+    async def async_send_rest_post(cmd: str):
+        """Sendet einen POST-Befehl thread-sicher und reiht sich in die 2s-Sperre ein."""
         async with REQUEST_LOCK:
-            # 1. Führe den HTTP-Request in einem Executor-Thread aus
-            await self.hass.async_add_executor_job(self._fetch_data)
-            # 2. Erzwinge exakt 2 Sekunden Pause vor der NÄCHSTEN Abfrage
+            ip = entry.data[CONF_IP_ADDRESS]
+            user = entry.data[CONF_USERNAME]
+            pwd = entry.data[CONF_PASSWORD]
+            url = f"http://{ip}/api/rest/{cmd}"
+            
+            def _post():
+                try:
+                    res = requests.post(url, auth=HTTPBasicAuth(user, pwd), timeout=10)
+                    _LOGGER.info("REST Command %s gesendet. Status: %s", cmd, res.status_code)
+                except Exception as err:
+                    _LOGGER.error("Fehler beim Senden von REST Command %s: %s", cmd, err)
+
+            await hass.async_add_executor_job(_post)
+            # Auch nach einem Schreibbefehl 2 Sekunden Pause einhalten
             await asyncio.sleep(2)
 
-    def _fetch_data(self) -> None:
-        """Klassischer Request an die REST API."""
-        url = f"http://{self._ip}/api/rest/{self._command}"
-        try:
-            response = requests.get(url, auth=HTTPBasicAuth(self._user, self._pwd), timeout=10)
-            if response.status_code == 200:
-                data = response.json().get("data", "")
-                if data:
-                    if self._parse_type == "weight" and len(data) >= 8:
-                        weight_g = int(data[2:4] + data[0:2], 16)
-                        self._state = round(weight_g / 1000, 2)
-                    elif self._parse_type == "salt_range" and len(data) >= 8:
-                        self._state = int(data[6:8] + data[4:6], 16)
-                    elif self._parse_type == "volume" and len(data) >= 8:
-                        liters = int(data[6:8] + data[4:6] + data[2:4] + data[0:2], 16)
-                        self._state = round(liters / 1000, 3)
-                    elif self._parse_type == "long_int" and len(data) >= 8:
-                        self._state = int(data[6:8] + data[4:6] + data[2:4] + data[0:2], 16)
-                    elif self._parse_type == "firmware" and len(data) >= 6:
-                        self._state = f"{int(data[4:6], 16)}.{int(data[2:4], 16)}.{int(data[0:2], 16)}"
-                    elif len(data) >= 4:
-                        self._state = int(data[2:4] + data[0:2], 16)
-                    else:
-                        self._state = int(data[0:2], 16)
-        except Exception as err:
-            _LOGGER.error("Fehler beim Abrufen von %s: %s", url, err)
+    # Handler-Funktionen für Dienste (nutzen jetzt die gequerte async_send_rest_post)
+    async def handle_set_wunschwasserhaerte(call: ServiceCall):
+        haerte = call.data.get("haerte")
+        await async_send_rest_post(f"3000{haerte:02X}")
+
+    async def handle_start_regeneration(call: ServiceCall):
+        await async_send_rest_post("350000")
+
+    async def handle_leak_close(call: ServiceCall):
+        await async_send_rest_post("3C00")
+
+    async def handle_leak_open(call: ServiceCall):
+        await async_send_rest_post("3D00")
+
+    async def handle_activate_scene(call: ServiceCall):
+        szene = call.data.get("szene")
+        dauer = call.data.get("dauer_hex").upper()
+        await async_send_rest_post(f"3600{szene:02X}{dauer}")
+
+    async def handle_start_holiday(call: ServiceCall):
+        tage = call.data.get("tage")
+        await async_send_rest_post(f"410001{tage:02X}")
+
+    async def handle_set_max_volume(call: ServiceCall):
+        liter = call.data.get("liter")
+        byte1 = liter % 256
+        byte2 = liter // 256
+        await async_send_rest_post(f"3F00{byte1:02X}{byte2:02X}")
+
+    async def handle_set_max_flow(call: ServiceCall):
+        l_h = call.data.get("liter_pro_stunde")
+        byte1 = l_h % 256
+        byte2 = l_h // 256
+        await async_send_rest_post(f"4000{byte1:02X}{byte2:02X}")
+
+    # Registrierung aller Dienste
+    hass.services.async_register(DOMAIN, "set_wunschwasserhaerte", handle_set_wunschwasserhaerte, schema=SERVICE_SET_HARDNESS_SCHEMA)
+    hass.services.async_register(DOMAIN, "start_regeneration", handle_start_regeneration, schema=SERVICE_EMPTY_SCHEMA)
+    hass.services.async_register(DOMAIN, "close_leak_protection", handle_leak_close, schema=SERVICE_EMPTY_SCHEMA)
+    hass.services.async_register(DOMAIN, "open_leak_protection", handle_leak_open, schema=SERVICE_EMPTY_SCHEMA)
+    hass.services.async_register(DOMAIN, "activate_scene", handle_activate_scene, schema=SERVICE_SET_SCENE_SCHEMA)
+    hass.services.async_register(DOMAIN, "start_holiday_mode", handle_start_holiday, schema=SERVICE_SET_DAYS_SCHEMA)
+    hass.services.async_register(DOMAIN, "set_max_volume", handle_set_max_volume, schema=SERVICE_SET_VOLUME_SCHEMA)
+    hass.services.async_register(DOMAIN, "set_max_flow", handle_set_max_flow, schema=SERVICE_SET_FLOW_SCHEMA)
+
+    return True
+
+async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Entfernt eine Instanz der Integration."""
+    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    if unload_ok:
+        hass.data[DOMAIN].pop(entry.entry_id)
+    return unload_ok
