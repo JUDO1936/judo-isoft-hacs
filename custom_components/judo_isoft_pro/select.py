@@ -18,7 +18,7 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
-# Dropdown Mappings
+# --- Mappings für Dropdowns ---
 SCENE_MAPPING = {
     "Szene 00 (Alltag meistern)": "00",
     "Szene 01 (Körper pflegen)": "01",
@@ -63,7 +63,7 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Erstellt alle Select-Entitäten."""
+    """Erstellt alle Dropdown-Steuerelemente."""
     config = entry.data
     ip = config[CONF_IP_ADDRESS]
     user = config[CONF_USERNAME]
@@ -102,7 +102,8 @@ class JudoIsoftBaseSelect(SelectEntity):
         try:
             response = request("GET", self._ip, self._user, self._pwd, command, timeout=10)
             if response.status_code == 200:
-                return response.json().get("data", "")
+                data = response.json().get("data", "")
+                return str(data).strip() if data is not None else None
         except Exception as err:
             _LOGGER.error("Fehler beim Abrufen von Kommando %s von %s: %s", command, self._ip, err)
         return None
@@ -118,7 +119,7 @@ class JudoIsoftBaseSelect(SelectEntity):
 
 
 class JudoIsoftSceneSelect(JudoIsoftBaseSelect):
-    """Dropdown-Menü zur Szenenauswahl."""
+    """Dropdown zur Auswahl der Szene."""
 
     def __init__(self, entry, device_info, ip, user, pwd):
         super().__init__(entry, device_info, ip, user, pwd)
@@ -141,17 +142,20 @@ class JudoIsoftSceneSelect(JudoIsoftBaseSelect):
     def update(self) -> None:
         data = self._fetch_cmd("6900")
         if data and len(data) >= 4:
-            scene_hex = f"{int(data[2:4], 16):02X}"
-            if scene_hex in REVERSE_SCENE_MAPPING:
-                self._attr_current_option = REVERSE_SCENE_MAPPING[scene_hex]
+            try:
+                scene_hex = f"{int(data[2:4], 16):02X}"
+                if scene_hex in REVERSE_SCENE_MAPPING:
+                    self._attr_current_option = REVERSE_SCENE_MAPPING[scene_hex]
+            except ValueError:
+                pass
 
 
 class JudoSceneDurationSelect(JudoIsoftBaseSelect):
-    """Dropdown-Menü zur Einstellung der Szenendauer."""
+    """Dropdown zur Einstellung der Szenendauer."""
 
     def __init__(self, entry, device_info, ip, user, pwd):
         super().__init__(entry, device_info, ip, user, pwd)
-        self._attr_name = "i-soft PRO Szenendauer Einstellen"
+        self._attr_name = "i-soft PRO Szenendauer"
         self._attr_unique_id = f"judo_isoft_pro_{entry.entry_id}_scene_duration_select"
         self._attr_icon = "mdi:timer-cog-outline"
         self._attr_options = list(SCENE_DURATION_MAPPING.keys())
@@ -171,13 +175,16 @@ class JudoSceneDurationSelect(JudoIsoftBaseSelect):
     def update(self) -> None:
         data = self._fetch_cmd("37")
         if data and len(data) >= 4:
-            minutes = int.from_bytes(bytes.fromhex(data[:4]), byteorder="little")
-            if minutes in REVERSE_DURATION_MAPPING:
-                self._attr_current_option = REVERSE_DURATION_MAPPING[minutes]
+            try:
+                minutes = int.from_bytes(bytes.fromhex(data[:4]), byteorder="little")
+                if minutes in REVERSE_DURATION_MAPPING:
+                    self._attr_current_option = REVERSE_DURATION_MAPPING[minutes]
+            except ValueError:
+                pass
 
 
 class JudoHardnessUnitSelect(JudoIsoftBaseSelect):
-    """Dropdown-Menü zur Einstellung der Härteeinheit."""
+    """Dropdown zur Auswahl der Härteeinheit (°dH, °fH, ppm, mmol/l)."""
 
     def __init__(self, entry, device_info, ip, user, pwd):
         super().__init__(entry, device_info, ip, user, pwd)
@@ -195,7 +202,10 @@ class JudoHardnessUnitSelect(JudoIsoftBaseSelect):
         data = self._fetch_cmd("20")
         current_hardness = 8
         if data and len(data) >= 2:
-            current_hardness = int(data[:2], 16)
+            try:
+                current_hardness = int(data[:2], 16)
+            except ValueError:
+                pass
 
         command = f"20{current_hardness:02X}{unit_code:02X}"
         if self._send_cmd(command):
@@ -205,6 +215,9 @@ class JudoHardnessUnitSelect(JudoIsoftBaseSelect):
     def update(self) -> None:
         data = self._fetch_cmd("20")
         if data and len(data) >= 4:
-            unit_code = int(data[2:4], 16)
-            if unit_code in REVERSE_HARDNESS_UNIT_MAPPING:
-                self._attr_current_option = REVERSE_HARDNESS_UNIT_MAPPING[unit_code]
+            try:
+                unit_code = int(data[2:4], 16)
+                if unit_code in REVERSE_HARDNESS_UNIT_MAPPING:
+                    self._attr_current_option = REVERSE_HARDNESS_UNIT_MAPPING[unit_code]
+            except ValueError:
+                pass
