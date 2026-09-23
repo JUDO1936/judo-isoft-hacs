@@ -18,6 +18,18 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
+LEAKAGE_REASONS = {
+    0x00: "Keine Leckage",
+    0x01: "Volumenstrom überschritten",
+    0x02: "Menge überschritten",
+    0x04: "Zeit überschritten",
+    0x08: "Ext. Kabelsensor",
+    0x10: "Manuell geschlossen",
+    0x20: "Manuelle Mikroleckage",
+    0x40: "Automatische Mikroleckage",
+    0x80: "Homeguard Meldung",
+}
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -40,6 +52,7 @@ async def async_setup_entry(
     )
 
     sensors = [
+        # Standard-Sensoren
         JudoIsoftSensor(entry, device_info, ip, user, pwd, "Wunschwasserhärte", "5100", "°dH", "mdi:water-softener", "wunschwasserhaerte"),
         JudoIsoftSensor(entry, device_info, ip, user, pwd, "Salzmangel Warnschwelle", "5700", "Tage", "mdi:alert-circle-outline", "salzmangel_warnschwelle"),
         JudoIsoftSensor(entry, device_info, ip, user, pwd, "Max Entnahmedauer", "3E00", "min", "mdi:timer-outline", "max_entnahmedauer"),
@@ -50,6 +63,16 @@ async def async_setup_entry(
         JudoIsoftSensor(entry, device_info, ip, user, pwd, "Gesamtwassermenge", "2800", "m³", "mdi:water-pump", "gesamtwassermenge", parse_type="volume"),
         JudoIsoftSensor(entry, device_info, ip, user, pwd, "Weichwassermenge", "2900", "m³", "mdi:water-check", "weichwassermenge", parse_type="volume"),
         JudoIsoftSensor(entry, device_info, ip, user, pwd, "Firmware Version", "0100", None, "mdi:file-code-outline", "firmware_version", parse_type="firmware"),
+        
+        # Sensoren aus Kommando 6900 (Status & Leckageschutz)
+        JudoIsoftSensor(entry, device_info, ip, user, pwd, "Aktive Szene", "6900", None, "mdi:palette", "aktive_szene", parse_type="6900_scene"),
+        JudoIsoftSensor(entry, device_info, ip, user, pwd, "Aktive Szenenoptionen", "6900", None, "mdi:tune", "aktive_szenenoptionen", parse_type="6900_options"),
+        JudoIsoftSensor(entry, device_info, ip, user, pwd, "Leckageschutz Status", "6900", None, "mdi:shield-check", "leckageschutz_status", parse_type="6900_leak_status"),
+        JudoIsoftSensor(entry, device_info, ip, user, pwd, "Leckagegrund", "6900", None, "mdi:alert-circle-outline", "leckagegrund", parse_type="6900_leak_reason"),
+        JudoIsoftSensor(entry, device_info, ip, user, pwd, "Aktueller Durchfluss", "6900", "L/h", "mdi:water-gauge", "aktueller_durchfluss", parse_type="6900_flow"),
+        JudoIsoftSensor(entry, device_info, ip, user, pwd, "Aktuelle Durchflussdauer", "6900", "min", "mdi:timer-outline", "aktuelle_durchflussdauer", parse_type="6900_duration"),
+        JudoIsoftSensor(entry, device_info, ip, user, pwd, "Aktuelle Wassermenge", "6900", "L", "mdi:water", "aktuelle_wassermenge", parse_type="6900_volume"),
+        JudoIsoftSensor(entry, device_info, ip, user, pwd, "Aktuelle Wassertemperatur", "6900", "°C", "mdi:thermometer", "aktuelle_wassertemperatur", parse_type="6900_temp"),
     ]
 
     async_add_entities(sensors, True)
@@ -75,6 +98,8 @@ class JudoIsoftSensor(SensorEntity):
         if parse_type == "volume":
             self._attr_device_class = SensorDeviceClass.WATER
             self._attr_state_class = SensorStateClass.TOTAL_INCREASING
+        elif parse_type == "6900_temp":
+            self._attr_device_class = SensorDeviceClass.TEMPERATURE
 
     @property
     def native_value(self):
@@ -99,6 +124,7 @@ class JudoIsoftSensor(SensorEntity):
             if not data:
                 return
 
+            # Standard-Parsing
             if self._parse_type == "weight" and len(data) >= 8:
                 weight_g = int(data[2:4] + data[0:2], 16)
                 self._state = round(weight_g / 1000, 2)
@@ -111,6 +137,26 @@ class JudoIsoftSensor(SensorEntity):
                 self._state = int(data[6:8] + data[4:6] + data[2:4] + data[0:2], 16)
             elif self._parse_type == "firmware" and len(data) >= 6:
                 self._state = f"{int(data[4:6], 16)}.{int(data[2:4], 16)}.{int(data[0:2], 16)}"
+                
+            # Parsing für Kommando 6900 (16-Byte Payload)
+            elif self._parse_type == "6900_scene" and len(data) >= 26:
+                self._state = f"Szene {int(data[2:4], 16):02X}"
+            elif self._parse_type == "6900_options" and len(data) >= 26:
+                self._state = f"0x{int(data[4:6], 16):02X}"
+            elif self._parse_type == "6900_leak_status" and len(data) >= 26:
+                self._state = "Aktiv" if int(data[6:8], 16) == 0x07 else "Deaktiviert"
+            elif self._parse_type == "6900_leak_reason" and len(data) >= 26:
+                reason_code = int(data[8:10], 16)
+                self._state = LEAKAGE_REASONS.get(reason_code, f"Unbekannt (0x{reason_code:02X})")
+            elif self._parse_type == "6900_flow" and len(data) >= 26:
+                self._state = int(data[12:14] + data[10:12], 16)
+            elif self._parse_type == "6900_duration" and len(data) >= 26:
+                self._state = int(data[16:18] + data[14:16], 16)
+            elif self._parse_type == "6900_volume" and len(data) >= 26:
+                self._state = int(data[20:22] + data[18:20], 16)
+            elif self._parse_type == "6900_temp" and len(data) >= 26:
+                self._state = int(data[24:26] + data[22:24], 16)
+                
             elif len(data) >= 4:
                 self._state = int(data[2:4] + data[0:2], 16)
             else:
