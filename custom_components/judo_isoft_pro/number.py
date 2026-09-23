@@ -1,4 +1,4 @@
-"""Number-Plattform für JUDO i-soft PRO Steuerungseinstellungen (Schieberegler)."""
+"""Number-Plattform für JUDO i-soft PRO Steuerungseinstellungen (Schieberegler mit Einheiten)."""
 import logging
 
 from homeassistant.components.number import NumberEntity, NumberMode
@@ -28,7 +28,7 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Erstellt alle Number-Steuerelemente (Schieberegler) für die JUDO i-soft PRO."""
+    """Erstellt alle Schieberegler-Steuerelemente."""
     config = entry.data
     ip = config[CONF_IP_ADDRESS]
     user = config[CONF_USERNAME]
@@ -56,7 +56,7 @@ async def async_setup_entry(
 
 
 class JudoIsoftBaseNumber(NumberEntity):
-    """Basisklasse für Number-Entitäten mit Schieberegler."""
+    """Basisklasse für Schieberegler."""
 
     def __init__(self, entry, device_info, ip, user, pwd) -> None:
         self._entry = entry
@@ -79,7 +79,8 @@ class JudoIsoftBaseNumber(NumberEntity):
         try:
             response = request("GET", self._ip, self._user, self._pwd, command, timeout=10)
             if response.status_code == 200:
-                return response.json().get("data", "")
+                data = response.json().get("data", "")
+                return str(data).strip() if data is not None else None
         except Exception as err:
             _LOGGER.error("Fehler beim Abrufen von Kommando %s von %s: %s", command, self._ip, err)
         return None
@@ -106,7 +107,10 @@ class JudoSaltWarningThresholdNumber(JudoIsoftBaseNumber):
     def update(self) -> None:
         data = self._fetch_cmd("94")
         if data and len(data) >= 12:
-            self._attr_native_value = int.from_bytes(bytes.fromhex(data[8:12]), byteorder="little")
+            try:
+                self._attr_native_value = int.from_bytes(bytes.fromhex(data[8:12]), byteorder="little")
+            except ValueError:
+                pass
 
 
 class JudoTargetHardnessNumber(JudoIsoftBaseNumber):
@@ -129,7 +133,10 @@ class JudoTargetHardnessNumber(JudoIsoftBaseNumber):
     def update(self) -> None:
         data = self._fetch_cmd("20")
         if data and len(data) >= 2:
-            self._attr_native_value = int(data[:2], 16)
+            try:
+                self._attr_native_value = int(data[:2], 16)
+            except ValueError:
+                pass
 
 
 class JudoMaxEntnahmedauerNumber(JudoIsoftBaseNumber):
@@ -153,7 +160,10 @@ class JudoMaxEntnahmedauerNumber(JudoIsoftBaseNumber):
     def update(self) -> None:
         data = self._fetch_cmd("3B")
         if data and len(data) >= 4:
-            self._attr_native_value = int.from_bytes(bytes.fromhex(data[:4]), byteorder="little")
+            try:
+                self._attr_native_value = int.from_bytes(bytes.fromhex(data[:4]), byteorder="little")
+            except ValueError:
+                pass
 
 
 class JudoMaxEntnahmemengeNumber(JudoIsoftBaseNumber):
@@ -177,7 +187,10 @@ class JudoMaxEntnahmemengeNumber(JudoIsoftBaseNumber):
     def update(self) -> None:
         data = self._fetch_cmd("3B")
         if data and len(data) >= 8:
-            self._attr_native_value = int.from_bytes(bytes.fromhex(data[4:8]), byteorder="little")
+            try:
+                self._attr_native_value = int.from_bytes(bytes.fromhex(data[4:8]), byteorder="little")
+            except ValueError:
+                pass
 
 
 class JudoMaxVolumenstromNumber(JudoIsoftBaseNumber):
@@ -201,4 +214,7 @@ class JudoMaxVolumenstromNumber(JudoIsoftBaseNumber):
     def update(self) -> None:
         data = self._fetch_cmd("3B")
         if data and len(data) >= 12:
-            self._attr_native_value = int.from_bytes(bytes.fromhex(data[8:12]), byteorder="little")
+            try:
+                self._attr_native_value = int.from_bytes(bytes.fromhex(data[8:12]), byteorder="little")
+            except ValueError:
+                pass
