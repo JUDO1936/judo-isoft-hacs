@@ -13,8 +13,8 @@ from .api import request
 from .const import DOMAIN, CONF_IP_ADDRESS, CONF_USERNAME, CONF_PASSWORD
 
 _LOGGER = logging.getLogger(__name__)
+PLATFORMS = ["sensor", "number", "button"]
 
-PLATFORMS = ["sensor"]
 SERVICES_REGISTERED = "services_registered"
 
 SERVICE_SET_HARDNESS_SCHEMA = vol.Schema({
