@@ -8,7 +8,6 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
-    PERCENTAGE,
     UnitOfMass,
     UnitOfTemperature,
     UnitOfTime,
@@ -29,7 +28,6 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
-# Mappings
 LEAKAGE_REASON_MAPPING = {
     0: "Keine Warnung / Normalbetrieb",
     1: "Maximalzeit überschritten",
@@ -70,40 +68,32 @@ async def async_setup_entry(
 
     async_add_entities(
         [
-            # --- 1. NEUE Sensoren aus 6900 Payload ---
             JudoFlowRateSensor(entry, device_info, ip, user, pwd),
             JudoTotalVolume6900Sensor(entry, device_info, ip, user, pwd),
             JudoWaterTempSensor(entry, device_info, ip, user, pwd),
             JudoLeakageReasonSensor(entry, device_info, ip, user, pwd),
-            # --- 2. GERÄTE- & STATUSDATEN ---
             JudoDeviceStatusSensor(entry, device_info, ip, user, pwd),
             JudoDeviceTypeSensor(entry, device_info, ip, user, pwd),
             JudoFirmwareVersionSensor(entry, device_info, ip, user, pwd),
-            # --- 3. WASSERHÄRTE ---
             JudoTargetHardnessSensor(entry, device_info, ip, user, pwd),
             JudoHardnessUnitSensor(entry, device_info, ip, user, pwd),
-            # --- 4. GRENZWERTE (LECKAGESCHUTZ) ---
             JudoMaxEntnahmedauerSensor(entry, device_info, ip, user, pwd),
             JudoMaxEntnahmemengeSensor(entry, device_info, ip, user, pwd),
             JudoMaxVolumenstromSensor(entry, device_info, ip, user, pwd),
-            # --- 5. SALZVORRAT & REICHWEITE ---
             JudoSaltWeightSensor(entry, device_info, ip, user, pwd),
             JudoSaltRangeSensor(entry, device_info, ip, user, pwd),
             JudoSaltWarningThresholdSensor(entry, device_info, ip, user, pwd),
-            # --- 6. WASSERMENGEN (GERÄTESPEICHER) ---
             JudoTotalVolumeSensor(entry, device_info, ip, user, pwd),
             JudoSoftWaterVolumeSensor(entry, device_info, ip, user, pwd),
         ],
-        True,
+        False,
     )
 
 
 class JudoIsoftBaseSensor(SensorEntity):
     """Basisklasse mit Hilfsmethoden für REST-Abfragen an die Anlage."""
 
-    def __init__(
-        self, entry: ConfigEntry, device_info: DeviceInfo, ip: str, user: str, pwd: str
-    ) -> None:
+    def __init__(self, entry: ConfigEntry, device_info: DeviceInfo, ip: str, user: str, pwd: str) -> None:
         self._entry = entry
         self._ip = ip
         self._user = user
@@ -111,32 +101,16 @@ class JudoIsoftBaseSensor(SensorEntity):
         self._attr_device_info = device_info
 
     def _fetch_cmd(self, command: str) -> str | None:
-        """Führt eine REST-GET-Anfrage aus und gibt das 'data'-Feld zurück."""
         try:
             response = request("GET", self._ip, self._user, self._pwd, command, timeout=10)
             if response.status_code == 200:
                 return response.json().get("data", "")
-            _LOGGER.warning(
-                "JUDO i-soft PRO %s: REST %s liefert HTTP %s",
-                self._ip,
-                command,
-                response.status_code,
-            )
         except Exception as err:
-            _LOGGER.error(
-                "Fehler beim Abrufen von %s / Kommando %s: %s", self._ip, command, err
-            )
+            _LOGGER.error("Fehler beim Abrufen von %s / Kommando %s: %s", self._ip, command, err)
         return None
 
 
-# ==============================================================================
-# 1. LIVE-SENSOREN (6900 PAYLOAD)
-# ==============================================================================
-
-
 class JudoFlowRateSensor(JudoIsoftBaseSensor):
-    """Sensor für den aktuellen Wasserdurchfluss in L/h (6900)."""
-
     def __init__(self, entry, device_info, ip, user, pwd):
         super().__init__(entry, device_info, ip, user, pwd)
         self._attr_name = "i-soft PRO Durchfluss"
@@ -147,14 +121,12 @@ class JudoFlowRateSensor(JudoIsoftBaseSensor):
 
     def update(self):
         data = self._fetch_cmd("6900")
-        if data and len(data) >= 26:
+        if data and len(data) >= 12:
             flow_bytes = bytes.fromhex(data[8:12])
             self._attr_native_value = int.from_bytes(flow_bytes, byteorder="little")
 
 
 class JudoTotalVolume6900Sensor(JudoIsoftBaseSensor):
-    """Sensor für den Gesamtwasserverbrauch in m³ aus 6900 Payload."""
-
     def __init__(self, entry, device_info, ip, user, pwd):
         super().__init__(entry, device_info, ip, user, pwd)
         self._attr_name = "i-soft PRO Gesamtwasserverbrauch (6900)"
@@ -165,15 +137,13 @@ class JudoTotalVolume6900Sensor(JudoIsoftBaseSensor):
 
     def update(self):
         data = self._fetch_cmd("6900")
-        if data and len(data) >= 26:
+        if data and len(data) >= 20:
             vol_bytes = bytes.fromhex(data[12:20])
             liters = int.from_bytes(vol_bytes, byteorder="little")
             self._attr_native_value = round(liters / 1000.0, 3)
 
 
 class JudoWaterTempSensor(JudoIsoftBaseSensor):
-    """Sensor für die Wassertemperatur in °C (6900)."""
-
     def __init__(self, entry, device_info, ip, user, pwd):
         super().__init__(entry, device_info, ip, user, pwd)
         self._attr_name = "i-soft PRO Wassertemperatur"
@@ -184,13 +154,11 @@ class JudoWaterTempSensor(JudoIsoftBaseSensor):
 
     def update(self):
         data = self._fetch_cmd("6900")
-        if data and len(data) >= 26:
+        if data and len(data) >= 22:
             self._attr_native_value = int(data[20:22], 16)
 
 
 class JudoLeakageReasonSensor(JudoIsoftBaseSensor):
-    """Sensor für den Leckagestatus / Leckagegrund (6900)."""
-
     def __init__(self, entry, device_info, ip, user, pwd):
         super().__init__(entry, device_info, ip, user, pwd)
         self._attr_name = "i-soft PRO Leckagestatus"
@@ -199,21 +167,12 @@ class JudoLeakageReasonSensor(JudoIsoftBaseSensor):
 
     def update(self):
         data = self._fetch_cmd("6900")
-        if data and len(data) >= 26:
+        if data and len(data) >= 8:
             reason_code = int(data[6:8], 16)
-            self._attr_native_value = LEAKAGE_REASON_MAPPING.get(
-                reason_code, f"Unbekannt (0x{reason_code:02X})"
-            )
-
-
-# ==============================================================================
-# 2. GERÄTE- & STATUSDATEN
-# ==============================================================================
+            self._attr_native_value = LEAKAGE_REASON_MAPPING.get(reason_code, f"Unbekannt (0x{reason_code:02X})")
 
 
 class JudoDeviceStatusSensor(JudoIsoftBaseSensor):
-    """Sensor für den Betriebsstatus der Anlage."""
-
     def __init__(self, entry, device_info, ip, user, pwd):
         super().__init__(entry, device_info, ip, user, pwd)
         self._attr_name = "i-soft PRO Status"
@@ -224,14 +183,10 @@ class JudoDeviceStatusSensor(JudoIsoftBaseSensor):
         data = self._fetch_cmd("02")
         if data:
             status_code = int(data[:2], 16) if len(data) >= 2 else 0
-            self._attr_native_value = (
-                "Bereit / Normalbetrieb" if status_code == 0 else f"Status-Code 0x{status_code:02X}"
-            )
+            self._attr_native_value = "Bereit / Normalbetrieb" if status_code == 0 else f"Status-Code 0x{status_code:02X}"
 
 
 class JudoDeviceTypeSensor(JudoIsoftBaseSensor):
-    """Sensor für den Gerätetyp Hex-Code."""
-
     def __init__(self, entry, device_info, ip, user, pwd):
         super().__init__(entry, device_info, ip, user, pwd)
         self._attr_name = "i-soft PRO Gerätetyp"
@@ -245,8 +200,6 @@ class JudoDeviceTypeSensor(JudoIsoftBaseSensor):
 
 
 class JudoFirmwareVersionSensor(JudoIsoftBaseSensor):
-    """Sensor für die Firmware-Version."""
-
     def __init__(self, entry, device_info, ip, user, pwd):
         super().__init__(entry, device_info, ip, user, pwd)
         self._attr_name = "i-soft PRO Firmware Version"
@@ -255,19 +208,11 @@ class JudoFirmwareVersionSensor(JudoIsoftBaseSensor):
 
     def update(self):
         data = self._fetch_cmd("01")
-        if data and len(data) >= 8:
-            # Extrahiere Firmware-String/Release
+        if data and len(data) >= 6:
             self._attr_native_value = f"{data[2:4]}.{data[4:6]}"
 
 
-# ==============================================================================
-# 3. WASSERHÄRTE
-# ==============================================================================
-
-
 class JudoTargetHardnessSensor(JudoIsoftBaseSensor):
-    """Sensor für die aktuell am Gerät eingestellte Wunschwasserhärte."""
-
     def __init__(self, entry, device_info, ip, user, pwd):
         super().__init__(entry, device_info, ip, user, pwd)
         self._attr_name = "i-soft PRO Wunschwasserhärte"
@@ -281,8 +226,6 @@ class JudoTargetHardnessSensor(JudoIsoftBaseSensor):
 
 
 class JudoHardnessUnitSensor(JudoIsoftBaseSensor):
-    """Sensor für die eingestellte Wasserhärte-Einheit."""
-
     def __init__(self, entry, device_info, ip, user, pwd):
         super().__init__(entry, device_info, ip, user, pwd)
         self._attr_name = "i-soft PRO Härteeinheit"
@@ -296,14 +239,7 @@ class JudoHardnessUnitSensor(JudoIsoftBaseSensor):
             self._attr_native_value = HARDNESS_UNIT_MAPPING.get(unit_code, "Unbekannt")
 
 
-# ==============================================================================
-# 4. GRENZWERTE (LECKAGESCHUTZ)
-# ==============================================================================
-
-
 class JudoMaxEntnahmedauerSensor(JudoIsoftBaseSensor):
-    """Sensor für die maximale Entnahmedauer am Gerät (in Min)."""
-
     def __init__(self, entry, device_info, ip, user, pwd):
         super().__init__(entry, device_info, ip, user, pwd)
         self._attr_name = "i-soft PRO Max. Entnahmedauer"
@@ -314,14 +250,10 @@ class JudoMaxEntnahmedauerSensor(JudoIsoftBaseSensor):
     def update(self):
         data = self._fetch_cmd("3B")
         if data and len(data) >= 4:
-            self._attr_native_value = int.from_bytes(
-                bytes.fromhex(data[:4]), byteorder="little"
-            )
+            self._attr_native_value = int.from_bytes(bytes.fromhex(data[:4]), byteorder="little")
 
 
 class JudoMaxEntnahmemengeSensor(JudoIsoftBaseSensor):
-    """Sensor für die maximale Entnahmemenge am Gerät (in Litern)."""
-
     def __init__(self, entry, device_info, ip, user, pwd):
         super().__init__(entry, device_info, ip, user, pwd)
         self._attr_name = "i-soft PRO Max. Entnahmemenge"
@@ -332,14 +264,10 @@ class JudoMaxEntnahmemengeSensor(JudoIsoftBaseSensor):
     def update(self):
         data = self._fetch_cmd("3B")
         if data and len(data) >= 8:
-            self._attr_native_value = int.from_bytes(
-                bytes.fromhex(data[4:8]), byteorder="little"
-            )
+            self._attr_native_value = int.from_bytes(bytes.fromhex(data[4:8]), byteorder="little")
 
 
 class JudoMaxVolumenstromSensor(JudoIsoftBaseSensor):
-    """Sensor für den maximalen Volumenstrom am Gerät (in L/h)."""
-
     def __init__(self, entry, device_info, ip, user, pwd):
         super().__init__(entry, device_info, ip, user, pwd)
         self._attr_name = "i-soft PRO Max. Volumenstrom"
@@ -350,19 +278,10 @@ class JudoMaxVolumenstromSensor(JudoIsoftBaseSensor):
     def update(self):
         data = self._fetch_cmd("3B")
         if data and len(data) >= 12:
-            self._attr_native_value = int.from_bytes(
-                bytes.fromhex(data[8:12]), byteorder="little"
-            )
-
-
-# ==============================================================================
-# 5. SALZVORRAT & REICHWEITE
-# ==============================================================================
+            self._attr_native_value = int.from_bytes(bytes.fromhex(data[8:12]), byteorder="little")
 
 
 class JudoSaltWeightSensor(JudoIsoftBaseSensor):
-    """Sensor für den verbleibenden Salzvorrat in kg."""
-
     def __init__(self, entry, device_info, ip, user, pwd):
         super().__init__(entry, device_info, ip, user, pwd)
         self._attr_name = "i-soft PRO Salzgewicht"
@@ -373,14 +292,11 @@ class JudoSaltWeightSensor(JudoIsoftBaseSensor):
     def update(self):
         data = self._fetch_cmd("94")
         if data and len(data) >= 4:
-            # Salt weight in grams / 1000 = kg
             grams = int.from_bytes(bytes.fromhex(data[:4]), byteorder="little")
             self._attr_native_value = round(grams / 1000.0, 1)
 
 
 class JudoSaltRangeSensor(JudoIsoftBaseSensor):
-    """Sensor für die verbleibende Salzreichweite in Tagen."""
-
     def __init__(self, entry, device_info, ip, user, pwd):
         super().__init__(entry, device_info, ip, user, pwd)
         self._attr_name = "i-soft PRO Salzreichweite"
@@ -391,14 +307,10 @@ class JudoSaltRangeSensor(JudoIsoftBaseSensor):
     def update(self):
         data = self._fetch_cmd("94")
         if data and len(data) >= 8:
-            self._attr_native_value = int.from_bytes(
-                bytes.fromhex(data[4:8]), byteorder="little"
-            )
+            self._attr_native_value = int.from_bytes(bytes.fromhex(data[4:8]), byteorder="little")
 
 
 class JudoSaltWarningThresholdSensor(JudoIsoftBaseSensor):
-    """Sensor für die Salzmangel-Warnschwelle am Gerät."""
-
     def __init__(self, entry, device_info, ip, user, pwd):
         super().__init__(entry, device_info, ip, user, pwd)
         self._attr_name = "i-soft PRO Salzmangel Warnschwelle"
@@ -409,19 +321,10 @@ class JudoSaltWarningThresholdSensor(JudoIsoftBaseSensor):
     def update(self):
         data = self._fetch_cmd("94")
         if data and len(data) >= 12:
-            self._attr_native_value = int.from_bytes(
-                bytes.fromhex(data[8:12]), byteorder="little"
-            )
-
-
-# ==============================================================================
-# 6. WASSERMENGEN (GERÄTESPEICHER)
-# ==============================================================================
+            self._attr_native_value = int.from_bytes(bytes.fromhex(data[8:12]), byteorder="little")
 
 
 class JudoTotalVolumeSensor(JudoIsoftBaseSensor):
-    """Sensor für die Gesamtwassermenge aus dem Gerätespeicher in m³."""
-
     def __init__(self, entry, device_info, ip, user, pwd):
         super().__init__(entry, device_info, ip, user, pwd)
         self._attr_name = "i-soft PRO Gesamtwassermenge"
@@ -438,8 +341,6 @@ class JudoTotalVolumeSensor(JudoIsoftBaseSensor):
 
 
 class JudoSoftWaterVolumeSensor(JudoIsoftBaseSensor):
-    """Sensor für die Weichwassermenge aus dem Gerätespeicher in m³."""
-
     def __init__(self, entry, device_info, ip, user, pwd):
         super().__init__(entry, device_info, ip, user, pwd)
         self._attr_name = "i-soft PRO Weichwassermenge"
