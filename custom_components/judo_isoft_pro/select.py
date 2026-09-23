@@ -1,4 +1,4 @@
-"""Select-Plattform für JUDO i-soft PRO Szenenauswahl."""
+"""Select-Plattform für JUDO i-soft PRO / L Szenenauswahl."""
 import logging
 
 from homeassistant.components.select import SelectEntity
@@ -18,19 +18,22 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
-SCENE_OPTIONS = {
-    "Szene 0: Alltag meistern": 0,
-    "Szene 1: Körper pflegen": 1,
-    "Szene 2: Garten bewässern": 2,
-    "Szene 3: Urlaub genießen": 3,
-    "Szene 4: Wäsche waschen": 4,
-    "Szene 5: Hochdruckreinigen": 5,
-    "Szene 6: Pool befüllen": 6,
-    "Szene 7: Heizung befüllen": 7,
-    "Szene 8: Custom Szene 1": 8,
-    "Szene 9: Custom Szene 2": 9,
-    "Szene 10: Custom Szene 3": 10,
+# Zuordnung von Home Assistant Optionen zu den Hex-Codes der Szenen gemäß API-Dokumentation
+SCENE_MAPPING = {
+    "Szene 00 (Alltag meistern)": "00",
+    "Szene 01 (Körper pflegen)": "01",
+    "Szene 02 (Garten bewässern)": "02",
+    "Szene 03 (Urlaub genießen)": "03",
+    "Szene 04 (Wäsche waschen)": "04",
+    "Szene 05 (Hochdruckreinigen)": "05",
+    "Szene 06 (Pool befüllen)": "06",
+    "Szene 07 (Heizung befüllen)": "07",
+    "Szene 08 (Custom Szene 1)": "08",
+    "Szene 09 (Custom Szene 2)": "09",
+    "Szene 0A (Custom Szene 3)": "0A",
 }
+
+REVERSE_SCENE_MAPPING = {v: k for k, v in SCENE_MAPPING.items()}
 
 
 async def async_setup_entry(
@@ -38,7 +41,7 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Erstellt die Szenenauswahl-Entität."""
+    """Erstellt die Select-Entität für eine konfigurierte JUDO i-soft PRO Anlage."""
     config = entry.data
     ip = config[CONF_IP_ADDRESS]
     user = config[CONF_USERNAME]
@@ -53,13 +56,13 @@ async def async_setup_entry(
         configuration_url=f"http://{ip}",
     )
 
-    async_add_entities([JudoSceneSelect(entry, device_info, ip, user, pwd)], True)
+    async_add_entities([JudoIsoftSceneSelect(entry, device_info, ip, user, pwd)], True)
 
 
-class JudoSceneSelect(SelectEntity):
-    """Szenenauswahl-Dropdown."""
+class JudoIsoftSceneSelect(SelectEntity):
+    """Repräsentiert das Dropdown-Menü zur Szenenauswahl der JUDO i-soft PRO."""
 
-    def __init__(self, entry, device_info, ip, user, pwd):
+    def __init__(self, entry: ConfigEntry, device_info: DeviceInfo, ip: str, user: str, pwd: str) -> None:
         self._entry = entry
         self._ip = ip
         self._user = user
@@ -67,27 +70,62 @@ class JudoSceneSelect(SelectEntity):
         self._attr_name = "i-soft PRO Szenenauswahl"
         self._attr_unique_id = f"judo_isoft_pro_{entry.entry_id}_scene_select"
         self._attr_device_info = device_info
-        self._attr_icon = "mdi:palette"
-        self._attr_options = list(SCENE_OPTIONS.keys())
-        self._attr_current_option = list(SCENE_OPTIONS.keys())[0]
+        self._attr_icon = "mdi:playlist-check"
+        self._attr_options = list(SCENE_MAPPING.keys())
+        self._attr_current_option = self._attr_options[0]
 
-    async def async_select_option(self, option: str) -> None:
-        scene_id = SCENE_OPTIONS.get(option, 0)
-        
-        # Holt die eingestellte Szenendauer aus der Number-Entität (Standard: 2 Std / 02 Hex)
-        duration_entity_id = f"number.i_soft_pro_szenendauer_einstellen"
-        duration_state = self.hass.states.get(duration_entity_id)
-        duration_hours = int(float(duration_state.state)) if duration_state else 2
-        
-        dauer_hex = f"{duration_hours:02X}00"
-        command = f"3600{scene_id:02X}{dauer_hex}"
+    def select_option(self, option: str) -> None:
+        """Sendet den Steuerbefehl zum Aktivieren der gewählten Szene an die Anlage."""
+        scene_code = SCENE_MAPPING.get(option)
+        if not scene_code:
+            _LOGGER.error("JUDO i-soft PRO %s: Ungültige Szenenauswahl: %s", self._ip, option)
+            return
 
+        # Steuerkommando '60' gefolgt vom Hex-Code der Szene (z.B. "6001")
+        command = f"60{scene_code}"
         try:
-            await self.hass.async_add_executor_job(
-                request, "POST", self._ip, self._user, self._pwd, command, 10.0
+            response = request(
+                "GET",
+                self._ip,
+                self._user,
+                self._pwd,
+                command,
+                timeout=10,
             )
-            self._attr_current_option = option
-            self.async_write_ha_state()
-            _LOGGER.info("Szene '%s' (%s) aktiviert für %d Std.", option, command, duration_hours)
+
+            if response.status_code == 200:
+                self._attr_current_option = option
+                self.schedule_update_ha_state()
+                _LOGGER.info("JUDO i-soft PRO %s: Szene geändert auf %s (Kommando: %s)", self._ip, option, command)
+            else:
+                _LOGGER.warning("JUDO i-soft PRO %s: REST %s liefert HTTP %s", self._ip, command, response.status_code)
         except Exception as err:
-            _LOGGER.error("Fehler beim Aktivieren der Szene %s: %s", option, err)
+            _LOGGER.error("Fehler beim Setzen der Szene an JUDO i-soft PRO %s / %s: %s", self._ip, command, err)
+
+    def update(self) -> None:
+        """Liest die aktuell aktive Szene aus den Statusdaten (Kommando 6900) aus."""
+        try:
+            response = request(
+                "GET",
+                self._ip,
+                self._user,
+                self._pwd,
+                "6900",
+                timeout=10,
+            )
+
+            if response.status_code != 200:
+                _LOGGER.warning("JUDO i-soft PRO %s: REST 6900 liefert HTTP %s", self._ip, response.status_code)
+                return
+
+            data = response.json().get("data", "")
+            if len(data) >= 26:
+                # Byte 1 enthält den Hex-Wert der aktiven Szene
+                scene_hex = f"{int(data[2:4], 16):02X}"
+                if scene_hex in REVERSE_SCENE_MAPPING:
+                    self._attr_current_option = REVERSE_SCENE_MAPPING[scene_hex]
+                else:
+                    _LOGGER.debug("JUDO i-soft PRO %s: Unbekannte Szene empfangen: 0x%s", self._ip, scene_hex)
+
+        except Exception as err:
+            _LOGGER.error("Fehler beim Abrufen der aktiven Szene von JUDO i-soft PRO %s / 6900: %s", self._ip, err)
