@@ -51,9 +51,6 @@ async def async_setup_entry(
         JudoIsoftSensor(entry, device_info, ip, user, pwd, "Weichwassermenge", "2900", "m³", "mdi:water-check", "weichwassermenge", parse_type="volume"),
         JudoIsoftSensor(entry, device_info, ip, user, pwd, "Gerätenummer", "0600", None, "mdi:identifier", "geraetenummer", parse_type="long_int"),
         JudoIsoftSensor(entry, device_info, ip, user, pwd, "Firmware Version", "0100", None, "mdi:file-code-outline", "firmware_version", parse_type="firmware"),
-        JudoIsoftSensor(entry, device_info, ip, user, pwd, "Wasserverbrauch Tag", "FB00", "L", "mdi:chart-bar", "wasser_tag", parse_type="long_int"),
-        JudoIsoftSensor(entry, device_info, ip, user, pwd, "Wasserverbrauch Monat", "FD00", "L", "mdi:chart-bar", "wasser_monat", parse_type="long_int"),
-        JudoIsoftSensor(entry, device_info, ip, user, pwd, "Salzverbrauch Tag", "F300", "g", "mdi:chart-line", "salz_tag"),
     ]
 
     async_add_entities(sensors, True)
@@ -133,7 +130,6 @@ class JudoIsoftSensor(SensorEntity):
                 self._state = int(data[0:2], 16)
 
         except Exception as err:
-            # Wichtig: _state wird absichtlich NICHT gelöscht.
             _LOGGER.error(
                 "Fehler beim Abrufen von JUDO i-soft PRO %s / %s: %s",
                 self._ip,
