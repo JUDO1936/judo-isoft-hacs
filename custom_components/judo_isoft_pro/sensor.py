@@ -43,13 +43,12 @@ async def async_setup_entry(
         JudoIsoftSensor(entry, device_info, ip, user, pwd, "Wunschwasserhärte", "5100", "°dH", "mdi:water-softener", "wunschwasserhaerte"),
         JudoIsoftSensor(entry, device_info, ip, user, pwd, "Salzmangel Warnschwelle", "5700", "Tage", "mdi:alert-circle-outline", "salzmangel_warnschwelle"),
         JudoIsoftSensor(entry, device_info, ip, user, pwd, "Max Entnahmedauer", "3E00", "min", "mdi:timer-outline", "max_entnahmedauer"),
-        JudoIsoftSensor(entry, device_info, ip, user, pwd, "Max Entnahmemenge", "3F00", "L", "mdi:water-minus", "max_entnahmemenge"),
+        JudoIsoftSensor(entry, device_info, ip, user, pwd, "Max Entnahmemenge", "3F00", "m³", "mdi:water-minus", "max_entnahmemenge", parse_type="volume"),
         JudoIsoftSensor(entry, device_info, ip, user, pwd, "Max Volumenstrom", "4000", "L/h", "mdi:speedometer", "max_volumenstrom"),
         JudoIsoftSensor(entry, device_info, ip, user, pwd, "Salzgewicht", "5600", "kg", "mdi:salt-shaker", "salzgewicht", parse_type="weight"),
         JudoIsoftSensor(entry, device_info, ip, user, pwd, "Salzreichweite", "5600", "Tage", "mdi:calendar-clock", "salzreichweite", parse_type="salt_range"),
         JudoIsoftSensor(entry, device_info, ip, user, pwd, "Gesamtwassermenge", "2800", "m³", "mdi:water-pump", "gesamtwassermenge", parse_type="volume"),
         JudoIsoftSensor(entry, device_info, ip, user, pwd, "Weichwassermenge", "2900", "m³", "mdi:water-check", "weichwassermenge", parse_type="volume"),
-        JudoIsoftSensor(entry, device_info, ip, user, pwd, "Gerätenummer", "0600", None, "mdi:identifier", "geraetenummer", parse_type="long_int"),
         JudoIsoftSensor(entry, device_info, ip, user, pwd, "Firmware Version", "0100", None, "mdi:file-code-outline", "firmware_version", parse_type="firmware"),
     ]
 
@@ -79,11 +78,9 @@ class JudoIsoftSensor(SensorEntity):
 
     @property
     def native_value(self):
-        """Gibt den letzten erfolgreich gelesenen Wert zurück."""
         return self._state
 
     def update(self) -> None:
-        """Liest einen Wert; bei Fehler bleibt der letzte Wert erhalten."""
         try:
             response = request(
                 "GET",
@@ -95,21 +92,11 @@ class JudoIsoftSensor(SensorEntity):
             )
 
             if response.status_code != 200:
-                _LOGGER.warning(
-                    "JUDO i-soft PRO %s: REST %s liefert HTTP %s",
-                    self._ip,
-                    self._command,
-                    response.status_code,
-                )
+                _LOGGER.warning("JUDO i-soft PRO %s: REST %s liefert HTTP %s", self._ip, self._command, response.status_code)
                 return
 
             data = response.json().get("data", "")
             if not data:
-                _LOGGER.warning(
-                    "JUDO i-soft PRO %s: REST %s liefert keine Daten",
-                    self._ip,
-                    self._command,
-                )
                 return
 
             if self._parse_type == "weight" and len(data) >= 8:
@@ -118,7 +105,7 @@ class JudoIsoftSensor(SensorEntity):
             elif self._parse_type == "salt_range" and len(data) >= 8:
                 self._state = int(data[6:8] + data[4:6], 16)
             elif self._parse_type == "volume" and len(data) >= 8:
-                liters = int(data[6:8] + data[4:6] + data[2:4] + data[0:2], 16)
+                liters = int(data[6:8] + data[4:6] + data[2:4] + data[0:2], 16) if len(data) >= 8 else int(data[2:4] + data[0:2], 16)
                 self._state = round(liters / 1000, 3)
             elif self._parse_type == "long_int" and len(data) >= 8:
                 self._state = int(data[6:8] + data[4:6] + data[2:4] + data[0:2], 16)
@@ -130,9 +117,4 @@ class JudoIsoftSensor(SensorEntity):
                 self._state = int(data[0:2], 16)
 
         except Exception as err:
-            _LOGGER.error(
-                "Fehler beim Abrufen von JUDO i-soft PRO %s / %s: %s",
-                self._ip,
-                self._command,
-                err,
-            )
+            _LOGGER.error("Fehler beim Abrufen von JUDO i-soft PRO %s / %s: %s", self._ip, self._command, err)
