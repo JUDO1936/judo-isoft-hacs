@@ -1,4 +1,4 @@
-"""Switch-Plattform für JUDO i-soft PRO / L Leckageschutz."""
+"""Switch-Plattform für JUDO i-soft PRO Leckageschutz."""
 import logging
 
 from homeassistant.components.switch import SwitchEntity
@@ -9,11 +9,11 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .api import request
 from .const import (
-    DOMAIN,
-    CONF_IP_ADDRESS,
-    CONF_USERNAME,
-    CONF_PASSWORD,
     CONF_DEVICE_NAME,
+    CONF_IP_ADDRESS,
+    CONF_PASSWORD,
+    CONF_USERNAME,
+    DOMAIN,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -24,7 +24,7 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Erstellt den Schalter für den Leckageschutz einer JUDO i-soft PRO Anlage."""
+    """Erstellt den Schalter für den Leckageschutz."""
     config = entry.data
     ip = config[CONF_IP_ADDRESS]
     user = config[CONF_USERNAME]
@@ -39,13 +39,13 @@ async def async_setup_entry(
         configuration_url=f"http://{ip}",
     )
 
-    async_add_entities([JudoIsoftLeakageSwitch(entry, device_info, ip, user, pwd)], True)
+    async_add_entities([JudoIsoftLeakageSwitch(entry, device_info, ip, user, pwd)], False)
 
 
 class JudoIsoftLeakageSwitch(SwitchEntity):
-    """Repräsentiert den Schalter zur Steuerung des Leckageschutzes (Absperrventil)."""
+    """Schalter für das Hauptventil / Leckageschutz."""
 
-    def __init__(self, entry: ConfigEntry, device_info: DeviceInfo, ip: str, user: str, pwd: str) -> None:
+    def __init__(self, entry, device_info, ip, user, pwd):
         self._entry = entry
         self._ip = ip
         self._user = user
@@ -58,58 +58,33 @@ class JudoIsoftLeakageSwitch(SwitchEntity):
 
     @property
     def is_on(self) -> bool:
-        """Gibt zurück, ob der Leckageschutz/das Ventil aktiv ist."""
         return self._is_on
 
     def turn_on(self, **kwargs) -> None:
-        """Schließt den Leckageschutz / sperrt die Wasserleitung ab (Kommando 3C00)."""
+        """Schließt das Ventil (Kommando 3C00)."""
         self._send_command("3C00", True)
 
     def turn_off(self, **kwargs) -> None:
-        """Öffnet den Leckageschutz / gibt die Wasserleitung frei (Kommando 3D00)."""
+        """Öffnet das Ventil (Kommando 3D00)."""
         self._send_command("3D00", False)
 
     def _send_command(self, command: str, target_state: bool) -> None:
         try:
-            response = request(
-                "GET",
-                self._ip,
-                self._user,
-                self._pwd,
-                command,
-                timeout=10,
-            )
-
+            response = request("GET", self._ip, self._user, self._pwd, command, timeout=10)
             if response.status_code == 200:
                 self._is_on = target_state
                 self.schedule_update_ha_state()
-                _LOGGER.info("JUDO i-soft PRO %s: Leckageschutz-Kommando %s erfolgreich gesendet", self._ip, command)
-            else:
-                _LOGGER.warning("JUDO i-soft PRO %s: REST %s liefert HTTP %s", self._ip, command, response.status_code)
         except Exception as err:
-            _LOGGER.error("Fehler beim Schalten des Leckageschutzes an JUDO i-soft PRO %s / %s: %s", self._ip, command, err)
+            _LOGGER.error("Fehler beim Schalten (%s): %s", command, err)
 
     def update(self) -> None:
-        """Liest den aktuellen Status des Leckageschutzes über Kommando 6900 aus."""
+        """Liest den Ventil-Status über 6900 (Byte 2) aus."""
         try:
-            response = request(
-                "GET",
-                self._ip,
-                self._user,
-                self._pwd,
-                "6900",
-                timeout=10,
-            )
-
-            if response.status_code != 200:
-                _LOGGER.warning("JUDO i-soft PRO %s: REST 6900 liefert HTTP %s", self._ip, response.status_code)
-                return
-
-            data = response.json().get("data", "")
-            if len(data) >= 26:
-                # Byte 2 (Index 4:6 in Hex-String) = 0x07 entspricht "Leckageschutz aktiv"
-                status_byte = int(data[4:6], 16)
-                self._is_on = (status_byte == 0x07)
-
+            response = request("GET", self._ip, self._user, self._pwd, "6900", timeout=10)
+            if response.status_code == 200:
+                data = response.json().get("data", "")
+                if len(data) >= 6:
+                    status_byte = int(data[4:6], 16)
+                    self._is_on = (status_byte == 0x07)
         except Exception as err:
-            _LOGGER.error("Fehler beim Abrufen des Leckageschutz-Status von JUDO i-soft PRO %s / 6900: %s", self._ip, err)
+            _LOGGER.error("Fehler beim Statusabruf des Leckageschutzes: %s", err)
