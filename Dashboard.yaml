@@ -14,116 +14,93 @@ views:
           - entity: sensor.i_soft_geraetetyp_hex
             name: Gerätetyp
             icon: mdi:chip
-          - entity: sensor.i_soft_firmware_version
+          - entity: sensor.test_gerat_schreibtisch_i_soft_pro_firmware_version
             name: Firmware Version
             icon: mdi:numeric
-          - entity: sensor.i_soft_inbetriebnahmedatum
-            name: Inbetriebnahmedatum
+          - entity: update.judo_i_soft_pro_l_integration_update
+            name: Software Status
             icon: mdi:calendar-check
+      - type: entities
+        title: Leckageschutz & Urlaubsmodus
+        icon: mdi:shield-water
+        entities:
+          - entity: button.test_gerat_schreibtisch_i_soft_pro_leckageschutz_schliessen
+            name: Leckageschutz schließen
+            icon: mdi:valve-closed
+          - entity: button.test_gerat_schreibtisch_i_soft_pro_leckageschutz_offnen
+            name: Leckageschutz öffnen
+            icon: mdi:valve-open
+          - type: section
+          - entity: number.test_gerat_schreibtisch_i_soft_pro_urlaubsmodus_dauer
+            name: Urlaubstage
+      - type: entities
+        title: Wasserhärte Einstellungen
+        icon: mdi:water-percent
+        entities:
+          - entity: >-
+              number.test_gerat_schreibtisch_i_soft_pro_wunschwasserharte_einstellen
+            name: Wunschwasserhärte
+          - entity: sensor.test_gerat_schreibtisch_i_soft_pro_wunschwasserharte
+            name: Aktuell am Gerät
+          - type: section
+          - entity: input_select.isoft_haerteeinheit_auswahl
+            name: Einheiten-Auswahl
+          - entity: sensor.i_soft_haerteeinheit
+            name: Aktuelle Härte am Gerät
       - type: entities
         title: Szenen & Regeneration
         icon: mdi:palette
         entities:
           - entity: input_select.isoft_szene_auswahl
             name: Szene
-          - entity: input_select.isoft_szene_dauer_auswahl
+          - entity: number.test_gerat_schreibtisch_i_soft_pro_szenendauer_einstellen
             name: Dauer
-          - entity: script.isoft_activate_scene_ui
-            name: Szene aktivieren
-            icon: mdi:play-circle
-          - entity: script.isoft_reset_scene_ui
-            name: Szene zurücksetzen
-            icon: mdi:restore
           - type: section
-          - entity: script.isoft_start_regeneration_ui
+          - entity: button.test_gerat_schreibtisch_i_soft_pro_regeneration_starten
             name: Manuelle Regeneration
             icon: mdi:autorenew
-      - type: entities
-        title: Leckageschutz & Urlaubsmodus
-        icon: mdi:shield-water
-        entities:
-          - entity: script.isoft_leak_close_ui
-            name: Leckageschutz schließen
-            icon: mdi:valve-closed
-          - entity: script.isoft_leak_open_ui
-            name: Leckageschutz öffnen
-            icon: mdi:valve-open
-          - type: section
-          - entity: input_number.isoft_urlaubsmodus_tage
-            name: Urlaubstage
-          - entity: script.isoft_start_holiday_ui
-            name: Urlaubsmodus starten
-            icon: mdi:beach
-      - type: entities
-        title: Wasserhärte Einstellungen
-        icon: mdi:water-percent
-        entities:
-          - entity: input_number.isoft_wunschwasserhaerte_eingabe
-            name: Wunschwasserhärte
-          - entity: sensor.i_soft_wunschwasserhaerte
-            name: Aktuell am Gerät
-          - entity: script.isoft_set_wunschwasserhaerte_ui
-            name: Wunschwasserhärte übernehmen
-            icon: mdi:water-opacity
-          - type: section
-          - entity: input_select.isoft_haerteeinheit_auswahl
-            name: Einheiten-Auswahl
-          - entity: sensor.i_soft_haerteeinheit
-            name: Aktuelle Einheit am Gerät
-          - entity: script.isoft_set_haerteeinheit_ui
-            name: Härteeinheit übernehmen
-            icon: mdi:hammer-wrench
       - type: entities
         title: Grenzwerte - Leckageschutz
         icon: mdi:shield-alert
         entities:
-          - entity: input_select.isoft_entnahmedauer_auswahl
+          - entity: >-
+              number.test_gerat_schreibtisch_i_soft_pro_max_entnahmedauer_einstellen
             name: Max. Entnahmedauer
-          - entity: sensor.i_soft_max_entnahmedauer
+          - entity: sensor.test_gerat_schreibtisch_i_soft_pro_max_entnahmedauer
             name: Gerät - Entnahmedauer
-          - entity: script.isoft_set_max_duration_ui
-            name: Entnahmedauer übernehmen
-            icon: mdi:timer-cog
           - type: section
-          - entity: input_number.isoft_max_entnahmemenge_eingabe
+          - entity: >-
+              number.test_gerat_schreibtisch_i_soft_pro_max_entnahmemenge_einstellen
             name: Max. Entnahmemenge
-          - entity: sensor.i_soft_max_entnahmemenge
+          - entity: sensor.test_gerat_schreibtisch_i_soft_pro_max_entnahmemenge
             name: Gerät - Entnahmemenge
-          - entity: script.isoft_set_max_volume_ui
-            name: Entnahmemenge übernehmen
-            icon: mdi:water-minus
           - type: section
-          - entity: input_number.isoft_max_volumenstrom_eingabe
+          - entity: >-
+              number.test_gerat_schreibtisch_i_soft_pro_max_volumenstrom_einstellen
             name: Max. Volumenstrom
-          - entity: sensor.i_soft_max_volumenstrom
+          - entity: sensor.test_gerat_schreibtisch_i_soft_pro_max_volumenstrom
             name: Gerät - Volumenstrom
-          - entity: script.isoft_set_max_flow_ui
-            name: Volumenstrom übernehmen
-            icon: mdi:speedometer
       - type: entities
         title: Salzvorrat & Warnschwelle
         icon: mdi:salt-shaker
         show_header_toggle: false
         entities:
-          - entity: sensor.i_soft_salzgewicht
+          - entity: sensor.test_gerat_schreibtisch_i_soft_pro_salzgewicht
             name: Salzvorrat
-          - entity: sensor.i_soft_salzreichweite
+          - entity: sensor.test_gerat_schreibtisch_i_soft_pro_salzreichweite
             name: Reichweite
-          - entity: sensor.i_soft_salz_mangelwarnung_schwelle
+          - entity: sensor.test_gerat_schreibtisch_i_soft_pro_salzmangel_warnschwelle
             name: Gerät - Warnschwelle
           - type: section
           - entity: input_number.isoft_salzmangel_warnung_eingabe
             name: Warnung ab (Tage)
-          - entity: script.isoft_set_salt_warning_ui
-            name: Salzwarnungs-Timer setzen
-            icon: mdi:alert-circle-outline
       - type: entities
         title: Wasser & Verbrauch
         icon: mdi:water
         entities:
-          - entity: sensor.i_soft_gesamtwassermenge
+          - entity: sensor.test_gerat_schreibtisch_i_soft_pro_gesamtwassermenge
             name: Gesamtwassermenge
-          - entity: sensor.i_soft_weichwassermenge
+          - entity: sensor.test_gerat_schreibtisch_i_soft_pro_weichwassermenge
             name: Weichwassermenge
       - type: history-graph
         entities:
