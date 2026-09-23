@@ -1,11 +1,9 @@
-"""Number-Plattform für JUDO i-soft PRO / L Steuerungseinstellungen."""
+"""Number-Plattform für JUDO i-soft PRO Steuerungseinstellungen."""
 import logging
 
 from homeassistant.components.number import NumberEntity, NumberMode
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
-    PERCENTAGE,
-    UnitOfMass,
     UnitOfTime,
     UnitOfVolume,
 )
@@ -47,27 +45,21 @@ async def async_setup_entry(
 
     async_add_entities(
         [
-            # --- 1. SALZMANGEL WARNSCHWELLE ---
             JudoSaltWarningThresholdNumber(entry, device_info, ip, user, pwd),
-            # --- 2. SZENENDAUER ---
             JudoSceneDurationNumber(entry, device_info, ip, user, pwd),
-            # --- 3. WUNSCHWASSERHÄRTE ---
             JudoTargetHardnessNumber(entry, device_info, ip, user, pwd),
-            # --- 4. GRENZWERTE LECKAGESCHUTZ ---
             JudoMaxEntnahmedauerNumber(entry, device_info, ip, user, pwd),
             JudoMaxEntnahmemengeNumber(entry, device_info, ip, user, pwd),
             JudoMaxVolumenstromNumber(entry, device_info, ip, user, pwd),
         ],
-        True,
+        False,
     )
 
 
 class JudoIsoftBaseNumber(NumberEntity):
-    """Basisklasse für Number-Entitäten der JUDO i-soft PRO."""
+    """Basisklasse für Number-Entitäten."""
 
-    def __init__(
-        self, entry: ConfigEntry, device_info: DeviceInfo, ip: str, user: str, pwd: str
-    ) -> None:
+    def __init__(self, entry, device_info, ip, user, pwd) -> None:
         self._entry = entry
         self._ip = ip
         self._user = user
@@ -76,19 +68,15 @@ class JudoIsoftBaseNumber(NumberEntity):
         self._attr_mode = NumberMode.BOX
 
     def _send_cmd(self, command: str) -> bool:
-        """Sendet einen REST-Befehl an das Gerät."""
         try:
             response = request("GET", self._ip, self._user, self._pwd, command, timeout=10)
             if response.status_code == 200:
-                _LOGGER.info("JUDO i-soft PRO %s: Kommando %s erfolgreich gesendet", self._ip, command)
                 return True
-            _LOGGER.warning("JUDO i-soft PRO %s: REST %s liefert HTTP %s", self._ip, command, response.status_code)
         except Exception as err:
             _LOGGER.error("Fehler beim Senden von Kommando %s an %s: %s", command, self._ip, err)
         return False
 
     def _fetch_cmd(self, command: str) -> str | None:
-        """Liest Daten über REST-GET aus."""
         try:
             response = request("GET", self._ip, self._user, self._pwd, command, timeout=10)
             if response.status_code == 200:
@@ -98,14 +86,7 @@ class JudoIsoftBaseNumber(NumberEntity):
         return None
 
 
-# ==============================================================================
-# 1. SALZMANGEL WARNSCHWELLE EINSTELLEN
-# ==============================================================================
-
-
 class JudoSaltWarningThresholdNumber(JudoIsoftBaseNumber):
-    """Einstellung der Salzmangel-Warnschwelle in Tagen."""
-
     def __init__(self, entry, device_info, ip, user, pwd):
         super().__init__(entry, device_info, ip, user, pwd)
         self._attr_name = "i-soft PRO Salzmangel Warnschwelle Einstellen"
@@ -118,29 +99,18 @@ class JudoSaltWarningThresholdNumber(JudoIsoftBaseNumber):
 
     def set_native_value(self, value: float) -> None:
         days = int(value)
-        # Kommando 94 mit hexadezimal kodierten Tagen als 4-Byte Little Endian senden
         hex_val = days.to_bytes(2, byteorder="little").hex().upper()
-        command = f"94{hex_val}"
-        if self._send_cmd(command):
+        if self._send_cmd(f"94{hex_val}"):
             self._attr_native_value = days
             self.schedule_update_ha_state()
 
     def update(self) -> None:
         data = self._fetch_cmd("94")
         if data and len(data) >= 12:
-            self._attr_native_value = int.from_bytes(
-                bytes.fromhex(data[8:12]), byteorder="little"
-            )
-
-
-# ==============================================================================
-# 2. SZENENDAUER EINSTELLEN
-# ==============================================================================
+            self._attr_native_value = int.from_bytes(bytes.fromhex(data[8:12]), byteorder="little")
 
 
 class JudoSceneDurationNumber(JudoIsoftBaseNumber):
-    """Einstellung der Szenendauer in Minuten."""
-
     def __init__(self, entry, device_info, ip, user, pwd):
         super().__init__(entry, device_info, ip, user, pwd)
         self._attr_name = "i-soft PRO Szenendauer Einstellen"
@@ -153,29 +123,18 @@ class JudoSceneDurationNumber(JudoIsoftBaseNumber):
 
     def set_native_value(self, value: float) -> None:
         minutes = int(value)
-        # Kommando 37 mit hexadezimaler Minuten-Dauer
         hex_val = minutes.to_bytes(2, byteorder="little").hex().upper()
-        command = f"37{hex_val}"
-        if self._send_cmd(command):
+        if self._send_cmd(f"37{hex_val}"):
             self._attr_native_value = minutes
             self.schedule_update_ha_state()
 
     def update(self) -> None:
         data = self._fetch_cmd("37")
         if data and len(data) >= 4:
-            self._attr_native_value = int.from_bytes(
-                bytes.fromhex(data[:4]), byteorder="little"
-            )
-
-
-# ==============================================================================
-# 3. WUNSCHWASSERHÄRTE EINSTELLEN
-# ==============================================================================
+            self._attr_native_value = int.from_bytes(bytes.fromhex(data[:4]), byteorder="little")
 
 
 class JudoTargetHardnessNumber(JudoIsoftBaseNumber):
-    """Einstellung der Wunschwasserhärte (°dH)."""
-
     def __init__(self, entry, device_info, ip, user, pwd):
         super().__init__(entry, device_info, ip, user, pwd)
         self._attr_name = "i-soft PRO Wunschwasserhärte Einstellen"
@@ -188,9 +147,7 @@ class JudoTargetHardnessNumber(JudoIsoftBaseNumber):
 
     def set_native_value(self, value: float) -> None:
         hardness = int(value)
-        # Kommando 20 gefolgt vom Hex-Wert der Härte
-        command = f"20{hardness:02X}"
-        if self._send_cmd(command):
+        if self._send_cmd(f"20{hardness:02X}"):
             self._attr_native_value = hardness
             self.schedule_update_ha_state()
 
@@ -200,14 +157,7 @@ class JudoTargetHardnessNumber(JudoIsoftBaseNumber):
             self._attr_native_value = int(data[:2], 16)
 
 
-# ==============================================================================
-# 4. GRENZWERTE LECKAGESCHUTZ
-# ==============================================================================
-
-
 class JudoMaxEntnahmedauerNumber(JudoIsoftBaseNumber):
-    """Einstellung der max. Entnahmedauer (Minuten)."""
-
     def __init__(self, entry, device_info, ip, user, pwd):
         super().__init__(entry, device_info, ip, user, pwd)
         self._attr_name = "i-soft PRO Max. Entnahmedauer Einstellen"
@@ -221,22 +171,17 @@ class JudoMaxEntnahmedauerNumber(JudoIsoftBaseNumber):
     def set_native_value(self, value: float) -> None:
         minutes = int(value)
         hex_val = minutes.to_bytes(2, byteorder="little").hex().upper()
-        command = f"3B01{hex_val}"
-        if self._send_cmd(command):
+        if self._send_cmd(f"3B01{hex_val}"):
             self._attr_native_value = minutes
             self.schedule_update_ha_state()
 
     def update(self) -> None:
         data = self._fetch_cmd("3B")
         if data and len(data) >= 4:
-            self._attr_native_value = int.from_bytes(
-                bytes.fromhex(data[:4]), byteorder="little"
-            )
+            self._attr_native_value = int.from_bytes(bytes.fromhex(data[:4]), byteorder="little")
 
 
 class JudoMaxEntnahmemengeNumber(JudoIsoftBaseNumber):
-    """Einstellung der max. Entnahmemenge (Liter)."""
-
     def __init__(self, entry, device_info, ip, user, pwd):
         super().__init__(entry, device_info, ip, user, pwd)
         self._attr_name = "i-soft PRO Max. Entnahmemenge Einstellen"
@@ -250,22 +195,17 @@ class JudoMaxEntnahmemengeNumber(JudoIsoftBaseNumber):
     def set_native_value(self, value: float) -> None:
         liters = int(value)
         hex_val = liters.to_bytes(2, byteorder="little").hex().upper()
-        command = f"3B02{hex_val}"
-        if self._send_cmd(command):
+        if self._send_cmd(f"3B02{hex_val}"):
             self._attr_native_value = liters
             self.schedule_update_ha_state()
 
     def update(self) -> None:
         data = self._fetch_cmd("3B")
         if data and len(data) >= 8:
-            self._attr_native_value = int.from_bytes(
-                bytes.fromhex(data[4:8]), byteorder="little"
-            )
+            self._attr_native_value = int.from_bytes(bytes.fromhex(data[4:8]), byteorder="little")
 
 
 class JudoMaxVolumenstromNumber(JudoIsoftBaseNumber):
-    """Einstellung des max. Volumenstroms (L/h)."""
-
     def __init__(self, entry, device_info, ip, user, pwd):
         super().__init__(entry, device_info, ip, user, pwd)
         self._attr_name = "i-soft PRO Max. Volumenstrom Einstellen"
@@ -279,14 +219,11 @@ class JudoMaxVolumenstromNumber(JudoIsoftBaseNumber):
     def set_native_value(self, value: float) -> None:
         flow = int(value)
         hex_val = flow.to_bytes(2, byteorder="little").hex().upper()
-        command = f"3B03{hex_val}"
-        if self._send_cmd(command):
+        if self._send_cmd(f"3B03{hex_val}"):
             self._attr_native_value = flow
             self.schedule_update_ha_state()
 
     def update(self) -> None:
         data = self._fetch_cmd("3B")
         if data and len(data) >= 12:
-            self._attr_native_value = int.from_bytes(
-                bytes.fromhex(data[8:12]), byteorder="little"
-            )
+            self._attr_native_value = int.from_bytes(bytes.fromhex(data[8:12]), byteorder="little")
