@@ -1,4 +1,4 @@
-"""Sensor-Plattform für JUDO i-soft PRO / L – Gesamte Sensorik."""
+"""Sensor-Plattform für JUDO i-soft PRO / L."""
 import logging
 
 from homeassistant.components.sensor import (
@@ -51,7 +51,7 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Erstellt alle Sensoren für eine konfigurierte JUDO i-soft PRO Anlage."""
+    """Erstellt alle aktiven Sensoren für die JUDO i-soft PRO Anlage."""
     config = entry.data
     ip = config[CONF_IP_ADDRESS]
     user = config[CONF_USERNAME]
@@ -69,11 +69,8 @@ async def async_setup_entry(
     async_add_entities(
         [
             JudoFlowRateSensor(entry, device_info, ip, user, pwd),
-            JudoTotalVolume6900Sensor(entry, device_info, ip, user, pwd),
             JudoWaterTempSensor(entry, device_info, ip, user, pwd),
             JudoLeakageReasonSensor(entry, device_info, ip, user, pwd),
-            JudoDeviceStatusSensor(entry, device_info, ip, user, pwd),
-            JudoDeviceTypeSensor(entry, device_info, ip, user, pwd),
             JudoFirmwareVersionSensor(entry, device_info, ip, user, pwd),
             JudoTargetHardnessSensor(entry, device_info, ip, user, pwd),
             JudoHardnessUnitSensor(entry, device_info, ip, user, pwd),
@@ -104,7 +101,8 @@ class JudoIsoftBaseSensor(SensorEntity):
         try:
             response = request("GET", self._ip, self._user, self._pwd, command, timeout=10)
             if response.status_code == 200:
-                return response.json().get("data", "")
+                data = response.json().get("data", "")
+                return str(data).strip() if data is not None else None
         except Exception as err:
             _LOGGER.error("Fehler beim Abrufen von %s / Kommando %s: %s", self._ip, command, err)
         return None
@@ -122,25 +120,11 @@ class JudoFlowRateSensor(JudoIsoftBaseSensor):
     def update(self):
         data = self._fetch_cmd("6900")
         if data and len(data) >= 12:
-            flow_bytes = bytes.fromhex(data[8:12])
-            self._attr_native_value = int.from_bytes(flow_bytes, byteorder="little")
-
-
-class JudoTotalVolume6900Sensor(JudoIsoftBaseSensor):
-    def __init__(self, entry, device_info, ip, user, pwd):
-        super().__init__(entry, device_info, ip, user, pwd)
-        self._attr_name = "i-soft PRO Gesamtwasserverbrauch (6900)"
-        self._attr_unique_id = f"judo_isoft_pro_{entry.entry_id}_total_volume_6900"
-        self._attr_device_class = SensorDeviceClass.WATER
-        self._attr_state_class = SensorStateClass.TOTAL_INCREASING
-        self._attr_native_unit_of_measurement = UnitOfVolume.CUBIC_METERS
-
-    def update(self):
-        data = self._fetch_cmd("6900")
-        if data and len(data) >= 20:
-            vol_bytes = bytes.fromhex(data[12:20])
-            liters = int.from_bytes(vol_bytes, byteorder="little")
-            self._attr_native_value = round(liters / 1000.0, 3)
+            try:
+                flow_bytes = bytes.fromhex(data[8:12])
+                self._attr_native_value = int.from_bytes(flow_bytes, byteorder="little")
+            except ValueError:
+                pass
 
 
 class JudoWaterTempSensor(JudoIsoftBaseSensor):
@@ -155,7 +139,10 @@ class JudoWaterTempSensor(JudoIsoftBaseSensor):
     def update(self):
         data = self._fetch_cmd("6900")
         if data and len(data) >= 22:
-            self._attr_native_value = int(data[20:22], 16)
+            try:
+                self._attr_native_value = int(data[20:22], 16)
+            except ValueError:
+                pass
 
 
 class JudoLeakageReasonSensor(JudoIsoftBaseSensor):
@@ -168,38 +155,18 @@ class JudoLeakageReasonSensor(JudoIsoftBaseSensor):
     def update(self):
         data = self._fetch_cmd("6900")
         if data and len(data) >= 8:
-            reason_code = int(data[6:8], 16)
-            self._attr_native_value = LEAKAGE_REASON_MAPPING.get(reason_code, f"Unbekannt (0x{reason_code:02X})")
-
-
-class JudoDeviceStatusSensor(JudoIsoftBaseSensor):
-    def __init__(self, entry, device_info, ip, user, pwd):
-        super().__init__(entry, device_info, ip, user, pwd)
-        self._attr_name = "i-soft PRO Status"
-        self._attr_unique_id = f"judo_isoft_pro_{entry.entry_id}_status"
-        self._attr_icon = "mdi:water-softener"
-
-    def update(self):
-        data = self._fetch_cmd("02")
-        if data:
-            status_code = int(data[:2], 16) if len(data) >= 2 else 0
-            self._attr_native_value = "Bereit / Normalbetrieb" if status_code == 0 else f"Status-Code 0x{status_code:02X}"
-
-
-class JudoDeviceTypeSensor(JudoIsoftBaseSensor):
-    def __init__(self, entry, device_info, ip, user, pwd):
-        super().__init__(entry, device_info, ip, user, pwd)
-        self._attr_name = "i-soft PRO Gerätetyp"
-        self._attr_unique_id = f"judo_isoft_pro_{entry.entry_id}_device_type"
-        self._attr_icon = "mdi:chip"
-
-    def update(self):
-        data = self._fetch_cmd("01")
-        if data and len(data) >= 2:
-            self._attr_native_value = f"0x{data[:2]}"
+            try:
+                reason_code = int(data[6:8], 16)
+                self._attr_native_value = LEAKAGE_REASON_MAPPING.get(
+                    reason_code, f"Status-Code 0x{reason_code:02X}"
+                )
+            except ValueError:
+                pass
 
 
 class JudoFirmwareVersionSensor(JudoIsoftBaseSensor):
+    """Liest die Firmware-Version aus Kommando 01 aus (Format: Major.Minor.Patch)."""
+
     def __init__(self, entry, device_info, ip, user, pwd):
         super().__init__(entry, device_info, ip, user, pwd)
         self._attr_name = "i-soft PRO Firmware Version"
@@ -209,7 +176,13 @@ class JudoFirmwareVersionSensor(JudoIsoftBaseSensor):
     def update(self):
         data = self._fetch_cmd("01")
         if data and len(data) >= 6:
-            self._attr_native_value = f"{data[2:4]}.{data[4:6]}"
+            try:
+                v_major = int(data[0:2], 16)
+                v_minor = int(data[2:4], 16)
+                v_patch = int(data[4:6], 16)
+                self._attr_native_value = f"{v_major}.{v_minor}.{v_patch}"
+            except ValueError:
+                self._attr_native_value = data
 
 
 class JudoTargetHardnessSensor(JudoIsoftBaseSensor):
@@ -222,7 +195,10 @@ class JudoTargetHardnessSensor(JudoIsoftBaseSensor):
     def update(self):
         data = self._fetch_cmd("20")
         if data and len(data) >= 2:
-            self._attr_native_value = int(data[:2], 16)
+            try:
+                self._attr_native_value = int(data[:2], 16)
+            except ValueError:
+                pass
 
 
 class JudoHardnessUnitSensor(JudoIsoftBaseSensor):
@@ -235,8 +211,11 @@ class JudoHardnessUnitSensor(JudoIsoftBaseSensor):
     def update(self):
         data = self._fetch_cmd("20")
         if data and len(data) >= 4:
-            unit_code = int(data[2:4], 16)
-            self._attr_native_value = HARDNESS_UNIT_MAPPING.get(unit_code, "Unbekannt")
+            try:
+                unit_code = int(data[2:4], 16)
+                self._attr_native_value = HARDNESS_UNIT_MAPPING.get(unit_code, "°dH")
+            except ValueError:
+                self._attr_native_value = "°dH"
 
 
 class JudoMaxEntnahmedauerSensor(JudoIsoftBaseSensor):
@@ -250,7 +229,10 @@ class JudoMaxEntnahmedauerSensor(JudoIsoftBaseSensor):
     def update(self):
         data = self._fetch_cmd("3B")
         if data and len(data) >= 4:
-            self._attr_native_value = int.from_bytes(bytes.fromhex(data[:4]), byteorder="little")
+            try:
+                self._attr_native_value = int.from_bytes(bytes.fromhex(data[:4]), byteorder="little")
+            except ValueError:
+                pass
 
 
 class JudoMaxEntnahmemengeSensor(JudoIsoftBaseSensor):
@@ -264,7 +246,10 @@ class JudoMaxEntnahmemengeSensor(JudoIsoftBaseSensor):
     def update(self):
         data = self._fetch_cmd("3B")
         if data and len(data) >= 8:
-            self._attr_native_value = int.from_bytes(bytes.fromhex(data[4:8]), byteorder="little")
+            try:
+                self._attr_native_value = int.from_bytes(bytes.fromhex(data[4:8]), byteorder="little")
+            except ValueError:
+                pass
 
 
 class JudoMaxVolumenstromSensor(JudoIsoftBaseSensor):
@@ -278,7 +263,10 @@ class JudoMaxVolumenstromSensor(JudoIsoftBaseSensor):
     def update(self):
         data = self._fetch_cmd("3B")
         if data and len(data) >= 12:
-            self._attr_native_value = int.from_bytes(bytes.fromhex(data[8:12]), byteorder="little")
+            try:
+                self._attr_native_value = int.from_bytes(bytes.fromhex(data[8:12]), byteorder="little")
+            except ValueError:
+                pass
 
 
 class JudoSaltWeightSensor(JudoIsoftBaseSensor):
@@ -292,8 +280,11 @@ class JudoSaltWeightSensor(JudoIsoftBaseSensor):
     def update(self):
         data = self._fetch_cmd("94")
         if data and len(data) >= 4:
-            grams = int.from_bytes(bytes.fromhex(data[:4]), byteorder="little")
-            self._attr_native_value = round(grams / 1000.0, 1)
+            try:
+                grams = int.from_bytes(bytes.fromhex(data[:4]), byteorder="little")
+                self._attr_native_value = round(grams / 1000.0, 1)
+            except ValueError:
+                pass
 
 
 class JudoSaltRangeSensor(JudoIsoftBaseSensor):
@@ -307,7 +298,10 @@ class JudoSaltRangeSensor(JudoIsoftBaseSensor):
     def update(self):
         data = self._fetch_cmd("94")
         if data and len(data) >= 8:
-            self._attr_native_value = int.from_bytes(bytes.fromhex(data[4:8]), byteorder="little")
+            try:
+                self._attr_native_value = int.from_bytes(bytes.fromhex(data[4:8]), byteorder="little")
+            except ValueError:
+                pass
 
 
 class JudoSaltWarningThresholdSensor(JudoIsoftBaseSensor):
@@ -321,10 +315,15 @@ class JudoSaltWarningThresholdSensor(JudoIsoftBaseSensor):
     def update(self):
         data = self._fetch_cmd("94")
         if data and len(data) >= 12:
-            self._attr_native_value = int.from_bytes(bytes.fromhex(data[8:12]), byteorder="little")
+            try:
+                self._attr_native_value = int.from_bytes(bytes.fromhex(data[8:12]), byteorder="little")
+            except ValueError:
+                pass
 
 
 class JudoTotalVolumeSensor(JudoIsoftBaseSensor):
+    """Liest die Gesamtwassermenge über 3F aus (Fallback auf 6900)."""
+
     def __init__(self, entry, device_info, ip, user, pwd):
         super().__init__(entry, device_info, ip, user, pwd)
         self._attr_name = "i-soft PRO Gesamtwassermenge"
@@ -334,13 +333,29 @@ class JudoTotalVolumeSensor(JudoIsoftBaseSensor):
         self._attr_native_unit_of_measurement = UnitOfVolume.CUBIC_METERS
 
     def update(self):
+        # 1. Versuche Abfrage über Kommando 3F
         data = self._fetch_cmd("3F")
         if data and len(data) >= 8:
-            liters = int.from_bytes(bytes.fromhex(data[:8]), byteorder="little")
-            self._attr_native_value = round(liters / 1000.0, 3)
+            try:
+                liters = int.from_bytes(bytes.fromhex(data[:8]), byteorder="little")
+                self._attr_native_value = round(liters / 1000.0, 3)
+                return
+            except ValueError:
+                pass
+
+        # 2. Fallback auf Kommando 6900 (Byte 6-9)
+        data_6900 = self._fetch_cmd("6900")
+        if data_6900 and len(data_6900) >= 20:
+            try:
+                liters = int.from_bytes(bytes.fromhex(data_6900[12:20]), byteorder="little")
+                self._attr_native_value = round(liters / 1000.0, 3)
+            except ValueError:
+                pass
 
 
 class JudoSoftWaterVolumeSensor(JudoIsoftBaseSensor):
+    """Liest die Weichwassermenge über 3F aus."""
+
     def __init__(self, entry, device_info, ip, user, pwd):
         super().__init__(entry, device_info, ip, user, pwd)
         self._attr_name = "i-soft PRO Weichwassermenge"
@@ -352,5 +367,8 @@ class JudoSoftWaterVolumeSensor(JudoIsoftBaseSensor):
     def update(self) -> None:
         data = self._fetch_cmd("3F")
         if data and len(data) >= 16:
-            liters = int.from_bytes(bytes.fromhex(data[8:16]), byteorder="little")
-            self._attr_native_value = round(liters / 1000.0, 3)
+            try:
+                liters = int.from_bytes(bytes.fromhex(data[8:16]), byteorder="little")
+                self._attr_native_value = round(liters / 1000.0, 3)
+            except ValueError:
+                pass
