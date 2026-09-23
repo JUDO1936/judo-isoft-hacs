@@ -1,4 +1,4 @@
-"""Number-Plattform für JUDO i-soft PRO Steuerungseinstellungen."""
+"""Number-Plattform für JUDO i-soft PRO Steuerungseinstellungen (Schieberegler)."""
 import logging
 
 from homeassistant.components.number import NumberEntity, NumberMode
@@ -28,7 +28,7 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Erstellt alle Number-Steuerelemente für die JUDO i-soft PRO."""
+    """Erstellt alle Number-Steuerelemente (Schieberegler) für die JUDO i-soft PRO."""
     config = entry.data
     ip = config[CONF_IP_ADDRESS]
     user = config[CONF_USERNAME]
@@ -46,7 +46,6 @@ async def async_setup_entry(
     async_add_entities(
         [
             JudoSaltWarningThresholdNumber(entry, device_info, ip, user, pwd),
-            JudoSceneDurationNumber(entry, device_info, ip, user, pwd),
             JudoTargetHardnessNumber(entry, device_info, ip, user, pwd),
             JudoMaxEntnahmedauerNumber(entry, device_info, ip, user, pwd),
             JudoMaxEntnahmemengeNumber(entry, device_info, ip, user, pwd),
@@ -57,7 +56,7 @@ async def async_setup_entry(
 
 
 class JudoIsoftBaseNumber(NumberEntity):
-    """Basisklasse für Number-Entitäten."""
+    """Basisklasse für Number-Entitäten mit Schieberegler."""
 
     def __init__(self, entry, device_info, ip, user, pwd) -> None:
         self._entry = entry
@@ -65,7 +64,7 @@ class JudoIsoftBaseNumber(NumberEntity):
         self._user = user
         self._pwd = pwd
         self._attr_device_info = device_info
-        self._attr_mode = NumberMode.BOX
+        self._attr_mode = NumberMode.SLIDER
 
     def _send_cmd(self, command: str) -> bool:
         try:
@@ -108,30 +107,6 @@ class JudoSaltWarningThresholdNumber(JudoIsoftBaseNumber):
         data = self._fetch_cmd("94")
         if data and len(data) >= 12:
             self._attr_native_value = int.from_bytes(bytes.fromhex(data[8:12]), byteorder="little")
-
-
-class JudoSceneDurationNumber(JudoIsoftBaseNumber):
-    def __init__(self, entry, device_info, ip, user, pwd):
-        super().__init__(entry, device_info, ip, user, pwd)
-        self._attr_name = "i-soft PRO Szenendauer Einstellen"
-        self._attr_unique_id = f"judo_isoft_pro_{entry.entry_id}_scene_duration_set"
-        self._attr_native_min_value = 5
-        self._attr_native_max_value = 1440
-        self._attr_native_step = 5
-        self._attr_native_unit_of_measurement = UnitOfTime.MINUTES
-        self._attr_icon = "mdi:timer-cog-outline"
-
-    def set_native_value(self, value: float) -> None:
-        minutes = int(value)
-        hex_val = minutes.to_bytes(2, byteorder="little").hex().upper()
-        if self._send_cmd(f"37{hex_val}"):
-            self._attr_native_value = minutes
-            self.schedule_update_ha_state()
-
-    def update(self) -> None:
-        data = self._fetch_cmd("37")
-        if data and len(data) >= 4:
-            self._attr_native_value = int.from_bytes(bytes.fromhex(data[:4]), byteorder="little")
 
 
 class JudoTargetHardnessNumber(JudoIsoftBaseNumber):
