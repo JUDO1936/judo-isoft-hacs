@@ -1,0 +1,31 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "JUDO i-soft PRO / PRO L",
+        "description": "Lokale REST-Verbindung zur JUDO-Anlage herstellen.",
+        "data": {
+          "host": "IP-Adresse / Hostname",
+          "port": "Port",
+          "username": "Benutzername",
+          "password": "Passwort",
+          "name": "Gerätename"
+        }
+      },
+      "reconfigure": {
+        "title": "JUDO-Gerätename ändern",
+        "data": {
+          "name": "Gerätename"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Verbindung zur JUDO-Anlage fehlgeschlagen.",
+      "invalid_name": "Bitte einen Gerätenamen eingeben."
+    },
+    "abort": {
+      "already_configured": "Dieses Gerät ist bereits eingerichtet.",
+      "reconfigure_successful": "Der Gerätename wurde geändert."
+    }
+  }
+}
