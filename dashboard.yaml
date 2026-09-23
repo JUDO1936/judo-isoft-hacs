@@ -8,141 +8,132 @@ views:
         icon: mdi:information-outline
         show_header_toggle: false
         entities:
-          - entity: sensor.judo_isoft_pro_192_168_176_2_aktive_szene
-            name: Aktive Szene
+          - entity: sensor.i_soft_pro_status_2
+            name: Geräte Status
             icon: mdi:play-circle-outline
-          - entity: sensor.judo_isoft_pro_192_168_176_2_leckageschutz_status
-            name: Globaler Leckageschutz
-            icon: mdi:shield-water
-          - entity: sensor.judo_isoft_pro_192_168_176_2_geraetetyp
+          - entity: sensor.judo_i_soft_pro_geratetyp
             name: Gerätetyp
             icon: mdi:chip
-          - entity: sensor.judo_isoft_pro_192_168_176_2_software_version
+          - entity: sensor.judo_i_soft_pro_software_version
             name: Firmware Version
             icon: mdi:numeric
-          - entity: sensor.judo_isoft_pro_192_168_176_2_betriebsstunden
-            name: Betriebsstunden
+          - entity: update.judo_i_soft_pro_l_integration_update
+            name: Integrations Status
             icon: mdi:clock-outline
       - type: entities
         title: Szenen & Regeneration
         icon: mdi:palette
         show_header_toggle: false
         entities:
-          - entity: select.judo_isoft_pro_192_168_176_2_szenenauswahl
+          - entity: sensor.judo_i_soft_pro_aktive_szene
+          - entity: select.judo_i_soft_pro_szenenauswahl
             name: Szene
             icon: mdi:palette-outline
-          - entity: select.judo_isoft_pro_192_168_176_2_szenendauer
+          - entity: select.judo_i_soft_pro_szenendauer
             name: Dauer
             icon: mdi:timer-outline
-          - entity: button.judo_isoft_pro_192_168_176_2_szene_aktivieren
+          - entity: button.judo_i_soft_pro_szene_aktivieren
             name: Szene aktivieren
             icon: mdi:play-circle
           - type: section
-          - entity: button.judo_isoft_pro_192_168_176_2_regeneration_starten
+          - entity: button.judo_i_soft_pro_regeneration_starten
             name: Manuelle Regeneration
             icon: mdi:autorenew
-      - type: entities
-        title: Leckageschutz & Urlaubsmodus
-        icon: mdi:shield-water
-        show_header_toggle: false
-        entities:
-          - entity: sensor.judo_isoft_pro_192_168_176_2_leckageschutz_status
-            name: Globaler Leckageschutz
-            icon: mdi:shield-check
-          - entity: sensor.judo_isoft_pro_192_168_176_2_leckagegrund
-            name: Leckagegrund
-            icon: mdi:alert-decagram-outline
-          - type: section
-          - entity: button.judo_isoft_pro_192_168_176_2_leckageschutz_schliessen
-            name: Leckageschutz schließen
-            icon: mdi:valve-closed
-          - entity: button.judo_isoft_pro_192_168_176_2_leckageschutz_offnen
-            name: Leckageschutz öffnen
-            icon: mdi:valve-open
-      - type: entities
-        title: Wasserhärte Einstellungen
-        icon: mdi:water-percent
-        show_header_toggle: false
-        entities:
-          - entity: number.judo_isoft_pro_192_168_176_2_wunschwasserharte
-            name: Wunschwasserhärte
-            icon: mdi:water-opacity
-          - entity: sensor.judo_isoft_pro_192_168_176_2_wunschwasserharte
-            name: Aktuell am Gerät
-            icon: mdi:water-check-outline
-          - type: section
-          - entity: select.judo_isoft_pro_192_168_176_2_harteeinheit
-            name: Einheiten-Auswahl
-            icon: mdi:format-letter-case
-          - entity: sensor.judo_isoft_pro_192_168_176_2_wunschwasserharte
-            name: Aktuelle Härte am Gerät
-            icon: mdi:water-percent
-      - type: entities
-        title: Grenzwerte - Leckageschutz
-        icon: mdi:shield-alert
-        show_header_toggle: false
-        entities:
-          - entity: number.judo_isoft_pro_192_168_176_2_max_entnahmedauer
-            name: Max. Entnahmedauer
-            icon: mdi:timer-cog
-          - entity: number.judo_isoft_pro_192_168_176_2_max_entnahmemenge
-            name: Max. Entnahmemenge
-            icon: mdi:water-minus
-          - entity: number.judo_isoft_pro_192_168_176_2_max_volumenstrom
-            name: Max. Volumenstrom
-            icon: mdi:speedometer
       - type: entities
         title: Salzvorrat & Warnschwelle
         icon: mdi:salt-shaker
         show_header_toggle: false
         entities:
-          - entity: sensor.judo_isoft_pro_192_168_176_2_salzgewicht
+          - entity: sensor.judo_i_soft_pro_salzreichweite
             name: Salzvorrat
             icon: mdi:sack
-          - entity: sensor.judo_isoft_pro_192_168_176_2_salzreichweite
+          - entity: sensor.judo_i_soft_pro_salzreichweite
             name: Reichweite
             icon: mdi:calendar-clock
           - type: section
-          - entity: number.judo_isoft_pro_192_168_176_2_salzvorrat
+          - entity: number.judo_i_soft_pro_salzvorrat
             name: Salzvorrat einstellen
             icon: mdi:sack-plus
-          - entity: number.judo_isoft_pro_192_168_176_2_salzmangel_warnschwelle
+          - entity: sensor.judo_i_soft_pro_salzreichweite
             name: Warnung ab (Tage)
             icon: mdi:alert-circle-outline
       - type: entities
-        title: Wasser & Verbrauch
-        icon: mdi:water
+        title: Leckageschutz & Urlaubsmodus
+        icon: mdi:shield-water
         show_header_toggle: false
         entities:
-          - entity: sensor.judo_isoft_pro_192_168_176_2_gesamtwassermenge
-            name: Gesamtwassermenge
-            icon: mdi:water
-          - entity: sensor.judo_isoft_pro_192_168_176_2_weichwassermenge
-            name: Weichwassermenge
-            icon: mdi:water-outline
+          - entity: sensor.judo_i_soft_pro_leckagegrund
+            name: Globaler Leckageschutz
+            icon: mdi:shield-check
+          - entity: sensor.judo_i_soft_pro_leckagegrund
+            name: Leckagegrund
+            icon: mdi:alert-decagram-outline
           - type: section
-          - entity: sensor.judo_isoft_pro_192_168_176_2_aktueller_wasserdurchfluss
-            name: Aktueller Wasserdurchfluss
-            icon: mdi:water-pump
-          - entity: sensor.judo_isoft_pro_192_168_176_2_wassertemperatur
-            name: Aktuelle Wassertemperatur
-            icon: mdi:thermometer-water
+          - entity: button.judo_i_soft_pro_leckageschutz_schliessen
+            name: Leckageschutz schließen
+            icon: mdi:valve-closed
+          - entity: button.judo_i_soft_pro_leckageschutz_offnen
+            name: Leckageschutz öffnen
+            icon: mdi:valve-open
+      - type: entities
+        title: Grenzwerte - Leckageschutz
+        icon: mdi:shield-alert
+        show_header_toggle: false
+        entities:
+          - entity: number.judo_i_soft_pro_max_entnahmedauer
+            name: Max. Entnahmedauer
+            icon: mdi:timer-cog
+          - entity: number.judo_i_soft_pro_max_entnahmemenge
+            name: Max. Entnahmemenge
+            icon: mdi:water-minus
+          - entity: number.judo_i_soft_pro_max_volumenstrom
+            name: Max. Volumenstrom
+            icon: mdi:speedometer
+      - type: entities
+        title: Wasserhärte Einstellungen
+        icon: mdi:water-percent
+        show_header_toggle: false
+        entities:
+          - entity: number.judo_i_soft_pro_wunschwasserharte
+            name: Wunschwasserhärte
+            icon: mdi:water-opacity
+          - entity: sensor.judo_i_soft_pro_wunschwasserharte
+            name: Aktuell am Gerät
+            icon: mdi:water-check-outline
+          - type: section
+          - entity: select.judo_i_soft_pro_harteeinheit
+            name: Einheiten-Auswahl
+            icon: mdi:format-letter-case
       - type: history-graph
         entities:
-          - entity: sensor.judo_isoft_pro_192_168_176_2_gesamtwassermenge
+          - entity: sensor.judo_i_soft_pro_gesamtwassermenge
             name: Gesamtwassermenge
-          - entity: sensor.judo_isoft_pro_192_168_176_2_weichwassermenge
+          - entity: sensor.judo_i_soft_pro_weichwassermenge
             name: Weichwassermenge
-          - entity: sensor.judo_isoft_pro_192_168_176_2_aktueller_wasserdurchfluss
+          - entity: sensor.judo_i_soft_pro_aktueller_wasserdurchfluss
             name: Wasserdurchfluss
-          - entity: sensor.judo_isoft_pro_192_168_176_2_wassertemperatur
+          - entity: sensor.judo_i_soft_pro_wassertemperatur
             name: Wassertemperatur
-          - entity: sensor.judo_isoft_pro_192_168_176_2_aktive_szene
-            name: Aktive Szene
-          - entity: sensor.judo_isoft_pro_192_168_176_2_leckageschutz_status
-            name: Leckageschutz
         title: Verlauf Wasser, Durchfluss, Temperatur & Status (7 Tage)
         hours_to_show: 168
         show_names: true
         logarithmic_scale: false
         expand_legend: false
+      - type: entities
+        title: Wasser & Verbrauch
+        icon: mdi:water
+        show_header_toggle: false
+        entities:
+          - entity: sensor.judo_i_soft_pro_gesamtwassermenge
+            name: Gesamtwassermenge
+            icon: mdi:water
+          - entity: sensor.judo_i_soft_pro_weichwassermenge
+            name: Weichwassermenge
+            icon: mdi:water-outline
+          - type: section
+          - entity: sensor.judo_i_soft_pro_aktueller_wasserdurchfluss
+            name: Aktueller Wasserdurchfluss
+            icon: mdi:water-pump
+          - entity: sensor.judo_i_soft_pro_wassertemperatur
+            name: Aktuelle Wassertemperatur
+            icon: mdi:thermometer-water
